@@ -41,7 +41,8 @@ jobs:
     if: always() && (github.event_name == 'workflow_dispatch' || needs.gate.outputs.should_run == 'true')
     concurrency:
       group: run-bot
-      cancel-in-progress: false
+      # اجرای جدید، اجرای در حال کار را متوقف می‌کند (ری‌استارت دستی/خودکار)
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 350
     environment:
