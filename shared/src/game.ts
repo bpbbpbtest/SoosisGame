@@ -1,7 +1,7 @@
 import {
-  CardId,
+  type CardId,
   SUITS,
-  Suit,
+  type Suit,
   cardName,
   fullDeck,
   rankOf,
@@ -17,7 +17,7 @@ import {
   teamOf,
   trickWinner,
 } from './rules';
-import {
+import type {
   GameState,
   Phase,
   PlayerInfo,
@@ -422,7 +422,7 @@ export class HokmGame implements GameState {
   private tricksByTeam(): [number, number] {
     const r = this.round!;
     const out: [number, number] = [0, 0];
-    for (const tr of r.tricks) out[teamOf(tr[0].seat)]++;
+    for (const tr of r.tricks) out[teamOf(trickWinner(tr, r.trump!))]++;
     return out;
   }
 

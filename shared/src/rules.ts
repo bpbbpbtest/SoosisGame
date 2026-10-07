@@ -1,5 +1,14 @@
-import { CardId, cardValue, suitOf, SUITS, Suit, isPicture, rankValue, rankOf } from './cards';
-import { TrickCard } from './types';
+import {
+  type CardId,
+  cardValue,
+  suitOf,
+  SUITS,
+  type Suit,
+  isPicture,
+  rankValue,
+  rankOf,
+} from './cards';
+import type { TrickCard } from './types';
 
 export function teamOf(seat: number): number {
   return seat % 2;
