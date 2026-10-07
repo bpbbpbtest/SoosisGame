@@ -6,17 +6,42 @@ on:
     # هر ۵ دقیقه: اگر اجرای قبلی تمام شد فوراً ربات را دوباره بالا می‌آورد
     - cron: '*/5 * * * *'
 
-concurrency:
-  group: run-bot
-  cancel-in-progress: false
-
 permissions:
   contents: read
   pages: write
   id-token: write
 
 jobs:
+  # فقط برای cron: اگر اجرای دیگری از همین workflow فعال است، اجرا نکن تا صف رشد نکند
+  gate:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Check for an active run
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          ACTIVE=$(gh api "repos/${{ github.repository }}/actions/workflows/run-bot.yml/runs?status=in_progress&per_page=100" \
+            --jq "[.workflow_runs[] | select(.id != $RUN_ID)] | length")
+          if [ "$ACTIVE" -gt 0 ]; then
+            echo "should_run=false (another run is active: $ACTIVE)"
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=true (no active run)"
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   run:
+    needs: gate
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.gate.outputs.should_run == 'true')
+    concurrency:
+      group: run-bot
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 350
     environment:
