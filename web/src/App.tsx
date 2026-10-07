@@ -20,6 +20,27 @@ function Boot({ text }: { text: string }) {
   );
 }
 
+function BrowserNotice() {
+  return (
+    <div className="boot">
+      <p className="err">این بازی فقط داخل تلگرام کار می‌کند.</p>
+      <p>
+        در مرورگر معمولی ورود ممکن نیست. در تلگرام، ربات @SoosisGame_bot را باز
+        کنید و دکمهٔ «🎲 ورود به بازی» را بزنید.
+      </p>
+      <button
+        type="button"
+        className="ghost"
+        onClick={() => {
+          window.location.href = 'https://t.me/SoosisGame_bot';
+        }}
+      >
+        باز کردن ربات در تلگرام
+      </button>
+    </div>
+  );
+}
+
 function Entry({
   cfg,
   onPick,
@@ -98,10 +119,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!error) return;
+    if (!error || status === 'fatal') return;
     const t = window.setTimeout(() => setError(null), 4000);
     return () => window.clearTimeout(t);
-  }, [error]);
+  }, [error, status]);
 
   useEffect(() => {
     if (!cfg || !code) return;
@@ -136,6 +157,10 @@ export default function App() {
     );
     setCode(c || null);
   }, []);
+
+  if (!cfg) return <Boot text="در حال اتصال…" />;
+
+  if (cfg && !cfg.dev && !tgInitData()) return <BrowserNotice />;
 
   if (!code) return <Entry cfg={cfg} onPick={pick} />;
 

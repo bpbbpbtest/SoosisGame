@@ -30,6 +30,8 @@ export class GameClient {
   private ws: WebSocket | null = null;
   private retryMs = 1000;
   private disposed = false;
+  private failCount = 0;
+  private lastError: string | null = null;
 
   constructor(
     private readonly cfg: WebConfig,
@@ -47,6 +49,8 @@ export class GameClient {
 
     ws.onopen = () => {
       this.retryMs = 1000;
+      this.failCount = 0;
+      this.lastError = null;
       this.handlers.onStatus('open');
       ws.send(JSON.stringify({ t: 'sync' } satisfies ClientMsg));
     };
@@ -60,14 +64,27 @@ export class GameClient {
       }
       if (msg.t === 'ready') this.handlers.onReady(msg.user);
       else if (msg.t === 'state') this.handlers.onState(msg.state);
-      else if (msg.t === 'error') this.handlers.onError(msg.message);
+      else if (msg.t === 'error') {
+        this.lastError = msg.message;
+        this.handlers.onError(msg.message);
+      }
     };
 
     ws.onclose = (ev) => {
       if (this.disposed) return;
       if (ev.code === 4001) {
         this.handlers.onStatus('fatal');
-        this.handlers.onError('اتصال رد شد؛ کد بازی یا ورود شما معتبر نیست');
+        this.handlers.onError(
+          this.lastError ?? 'اتصال رد شد؛ کد بازی یا ورود شما معتبر نیست'
+        );
+        return;
+      }
+      this.failCount++;
+      if (this.failCount >= 8) {
+        this.handlers.onStatus('fatal');
+        this.handlers.onError(
+          this.lastError ?? 'اتصال برقرار نشد؛ بعداً دوباره تلاش کنید'
+        );
         return;
       }
       this.handlers.onStatus('closed');

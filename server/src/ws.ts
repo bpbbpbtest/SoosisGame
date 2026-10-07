@@ -132,6 +132,7 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     const parsed = parseConn(req);
     if ('error' in parsed) {
+      console.log(`[ws] rejected: ${parsed.error}`);
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ t: 'error', message: parsed.error } satisfies ServerMsg));
       }
@@ -196,12 +197,7 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
       socket.destroy();
       return;
     }
-    const parsed = parseConn(req);
-    if ('error' in parsed) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
-      socket.destroy();
-      return;
-    }
+    // احراز هویت در connection handler انجام می‌شود تا خطای واقعی با کد 4001 به کلاینت برسد
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
   });
 
