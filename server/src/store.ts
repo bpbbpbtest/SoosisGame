@@ -8,7 +8,7 @@ export class GameStore {
 
   constructor(private readonly matchTarget: number) {}
 
-  create(chatId: string | null = null): HokmGame {
+  create(chatId: number | null = null): HokmGame {
     let id = '';
     do {
       id = '';

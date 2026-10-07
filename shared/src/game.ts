@@ -40,7 +40,7 @@ export interface GameOptions {
   roundTarget?: number;
   now?: () => number;
   rnd?: () => number;
-  chatId?: string | null;
+  chatId?: number | null;
 }
 
 export interface PublicPlayer {
@@ -54,7 +54,7 @@ export interface PublicPlayer {
 
 export interface PlayerView {
   gameId: string;
-  chatId: string | null;
+  chatId: number | null;
   phase: Phase;
   you: number | null;
   players: (PublicPlayer | null)[];
@@ -95,7 +95,7 @@ export interface PlayerView {
 
 export class HokmGame implements GameState {
   readonly id: string;
-  chatId: string | null;
+  chatId: number | null;
   phase: Phase = 'lobby';
   players: (PlayerInfo | null)[] = [null, null, null, null];
   points: [number, number] = [0, 0];

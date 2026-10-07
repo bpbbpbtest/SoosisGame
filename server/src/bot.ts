@@ -67,7 +67,10 @@ export function createBot(cfg: Config, store: GameStore): BotHandle | null {
     await ctx.reply('🎮 بازی‌های در انتظار:', { reply_markup: kb });
   });
 
-  bot.catch((err) => console.error('[bot] error:', err.error.message));
+  bot.catch((err) => {
+    const e = err.error;
+    console.error('[bot] error:', e instanceof Error ? e.message : String(e));
+  });
 
   bot.start({
     onStart: (info) => console.log(`[bot] polling as @${info.username}`),

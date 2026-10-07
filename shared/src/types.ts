@@ -44,7 +44,7 @@ export interface RoundResult {
 
 export interface GameState {
   id: string;
-  chatId: string | null;
+  chatId: number | null;
   phase: Phase;
   players: (PlayerInfo | null)[];
   points: [number, number];
