@@ -1,10 +1,10 @@
-import type { Action, ClientMsg, PlayerView, ServerMsg, WebConfig } from 'shared';
+import type { Action, AnyView, ClientMsg, ServerMsg, WebConfig } from 'shared';
 
 export type ConnStatus = 'connecting' | 'open' | 'closed' | 'fatal';
 
 export interface ClientHandlers {
   onReady: (user: { id: string; name: string }) => void;
-  onState: (state: PlayerView) => void;
+  onState: (state: AnyView) => void;
   onError: (message: string) => void;
   onStatus: (status: ConnStatus) => void;
 }

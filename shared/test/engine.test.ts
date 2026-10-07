@@ -16,7 +16,7 @@ import {
   trickWinner,
 } from '../src/rules';
 import { GameError, HokmGame } from '../src/game';
-import { TrickCard } from '../src/types';
+import type { TrickCard } from '../src/types';
 
 describe('cards', () => {
   it('deck has 52 unique cards', () => {
@@ -341,5 +341,14 @@ describe('game flow', () => {
     expect(v0.hand).not.toEqual(v1.hand);
     // فقط تعداد کارت رقبا قابل دیدن است
     expect(v0.players[1]!.cardCount).toBe(13);
+  });
+
+  it('2p-only actions rejected in 4p mode; mode field is 4', () => {
+    const g = newGame();
+    joinFour(g);
+    expect(g.mode).toBe('4');
+    expect(() => g.burnCards('p0', ['SH', 'SK'])).toThrow(GameError);
+    expect(() => g.drawPick('p0', true)).toThrow(GameError);
+    expect(g.view(0).mode).toBe('4');
   });
 });

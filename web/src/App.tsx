@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Action, PlayerView, WebConfig } from 'shared';
+import type { Action, AnyView, WebConfig } from 'shared';
 import {
   GameClient,
   createDevGame,
@@ -8,6 +8,7 @@ import {
 } from './client';
 import { devInitData, tg, tgDisplayName, tgInitData } from './tg';
 import { GameTable } from './GameTable';
+import { GameTable2 } from './GameTable2';
 
 type FullConfig = WebConfig & { dev?: boolean };
 
@@ -92,7 +93,8 @@ function Entry({
       ) : null}
       {err ? <p className="err">{err}</p> : null}
       <p className="hint-sm">
-        یا در گروه دستور <code>/newgame</code> را برای ربات بفرستید و روی دکمه بازی بزنید.
+        یا در گروه دستور <code>/newgame</code> (۴ نفره) یا <code>/newgame2</code> (۲ نفره) را
+        برای ربات بفرستید و روی دکمه بازی بزنید.
       </p>
     </div>
   );
@@ -104,7 +106,7 @@ export default function App() {
     new URLSearchParams(window.location.search).get('g')
   );
   const [status, setStatus] = useState<ConnStatus>('connecting');
-  const [state, setState] = useState<PlayerView | null>(null);
+  const [state, setState] = useState<AnyView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const clientRef = useRef<GameClient | null>(null);
 
@@ -188,7 +190,11 @@ export default function App() {
           {error}
         </div>
       ) : null}
-      <GameTable state={state} act={act} />
+      {state.mode === '2' ? (
+        <GameTable2 state={state} act={act} />
+      ) : (
+        <GameTable state={state} act={act} />
+      )}
     </div>
   );
 }

@@ -28,12 +28,12 @@ import type {
 
 export class GameError extends Error {}
 
-const TURN_MS = 60_000;
-const CUT_MS = 90_000;
-const TRUMP_MS = 120_000;
-const BAM_MS = 60_000;
-const ROUND_END_MS = 120_000;
-const LOG_LIMIT = 40;
+export const TURN_MS = 60_000;
+export const CUT_MS = 90_000;
+export const TRUMP_MS = 120_000;
+export const BAM_MS = 60_000;
+export const ROUND_END_MS = 120_000;
+export const LOG_LIMIT = 40;
 
 export interface GameOptions {
   matchTarget?: number;
@@ -53,6 +53,7 @@ export interface PublicPlayer {
 }
 
 export interface PlayerView {
+  mode: '4';
   gameId: string;
   chatId: number | null;
   phase: Phase;
@@ -95,6 +96,7 @@ export interface PlayerView {
 
 export class HokmGame implements GameState {
   readonly id: string;
+  readonly mode = '4' as const;
   chatId: number | null;
   phase: Phase = 'lobby';
   players: (PlayerInfo | null)[] = [null, null, null, null];
@@ -536,6 +538,16 @@ export class HokmGame implements GameState {
     this.bump();
   }
 
+  // ---------- اکشن‌های مخصوص بازی دو نفره (در این حالت نامعتبر) ----------
+
+  burnCards(_playerId: string, _cards: CardId[]): void {
+    throw new GameError('سوختن ورق فقط در بازی دو نفره وجود دارد');
+  }
+
+  drawPick(_playerId: string, _keep: boolean): void {
+    throw new GameError('برداشت ورق از زمین فقط در بازی دو نفره وجود دارد');
+  }
+
   // ---------- زمان‌بند خودکار ----------
 
   autoAdvance(now: number): boolean {
@@ -622,6 +634,7 @@ export class HokmGame implements GameState {
     const isHakem = seat !== null && this.hakem === seat;
 
     return {
+      mode: '4',
       gameId: this.id,
       chatId: this.chatId,
       phase: this.phase,

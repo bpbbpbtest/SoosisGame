@@ -1,5 +1,6 @@
 import type { CardId, Suit } from './cards';
 import type { PlayerView } from './game';
+import type { PlayerView2 } from './game2';
 
 export type Action =
   | { k: 'start' }
@@ -9,6 +10,8 @@ export type Action =
   | { k: 'vote' }
   | { k: 'play'; card: CardId }
   | { k: 'bam'; cont: boolean }
+  | { k: 'burn'; cards: CardId[] }
+  | { k: 'drawPick'; keep: boolean }
   | { k: 'next' }
   | { k: 'restart' }
   | { k: 'forfeit' }
@@ -20,7 +23,7 @@ export type ClientMsg =
 
 export type ServerMsg =
   | { t: 'ready'; user: { id: string; name: string } }
-  | { t: 'state'; state: PlayerView }
+  | { t: 'state'; state: PlayerView | PlayerView2 }
   | { t: 'error'; message: string };
 
 export interface WebConfig {

@@ -1,14 +1,14 @@
-import { HokmGame } from 'shared';
+import { Hokm2Game, HokmGame, type GameMode, type ManagedGame } from 'shared';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const LOBBY_IDLE_MS = 24 * 60 * 60 * 1000;
 
 export class GameStore {
-  private games = new Map<string, HokmGame>();
+  private games = new Map<string, ManagedGame>();
 
   constructor(private readonly matchTarget: number) {}
 
-  create(chatId: number | null = null): HokmGame {
+  create(chatId: number | null = null, mode: GameMode = '4'): ManagedGame {
     let id = '';
     do {
       id = '';
@@ -16,20 +16,21 @@ export class GameStore {
         id += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
       }
     } while (this.games.has(id));
-    const g = new HokmGame(id, { matchTarget: this.matchTarget, chatId });
+    const opts = { matchTarget: this.matchTarget, chatId };
+    const g = mode === '2' ? new Hokm2Game(id, opts) : new HokmGame(id, opts);
     this.games.set(id, g);
     return g;
   }
 
-  get(id: string): HokmGame | undefined {
+  get(id: string): ManagedGame | undefined {
     return this.games.get(id.toUpperCase());
   }
 
-  all(): HokmGame[] {
+  all(): ManagedGame[] {
     return [...this.games.values()];
   }
 
-  lobbyGames(): HokmGame[] {
+  lobbyGames(): ManagedGame[] {
     return this.all().filter((g) => g.phase === 'lobby');
   }
 

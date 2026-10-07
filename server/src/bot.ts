@@ -1,31 +1,42 @@
 import { Bot, InlineKeyboard } from 'grammy';
-import type { HokmGame } from 'shared';
+import type { ManagedGame } from 'shared';
 import type { Config } from './config';
 import type { GameStore } from './store';
 
 export interface BotHandle {
-  notifyMatchEnd: (game: HokmGame) => Promise<void>;
+  notifyMatchEnd: (game: ManagedGame) => Promise<void>;
   sendOwner: (text: string) => Promise<void>;
   stop: () => void;
 }
 
 const HELP = `🃏 ربات بازی‌های گروهی — حکم
 
-/newgame — ساخت بازی حکم جدید (در گروه)
+/newgame — ساخت بازی حکم ۴ نفره (در گروه)
+/newgame2 — ساخت بازی حکم ۲ نفره
 /games — فهرست بازی‌های در انتظار
 /help — راهنما
 
-۴ نفر از طریق دکمهٔ مینی‌اپ جوین می‌شوند و کل بازی در همان‌جا انجام می‌شود:
-یارکشی با اولین آس، کوپ، تعیین حکم، بازی ۷ دستی، کت و بام.`;
+۴ نفر: یارکشی با اولین آس، کوپ، تعیین حکم، بازی ۷ دستی، کت و بام.
+۲ نفر: اولین آس حاکم، حکم را خودش انتخاب می‌کند، ۵ ورق پخش + سوزاندن ۲ ورق، برداشت زوجی از زمین تا ۱۳ ورق، بازی ۷ دستی.`;
 
-function matchText(game: HokmGame): string {
+function matchText(game: ManagedGame): string {
+  const isTwo = game.mode === '2';
   const names = game.players
-    .map((p, i) => (p ? `${p.name}${i % 2 === 0 ? ' 🅰' : ' 🅱'}` : null))
+    .map((p, i) => {
+      if (!p) return null;
+      return isTwo ? p.name : `${p.name}${i % 2 === 0 ? ' 🅰' : ' 🅱'}`;
+    })
     .filter(Boolean)
     .join('، ');
-  const winner = game.matchWinner === 0 ? 'تیم اول' : 'تیم دوم';
+  const winner = game.matchWinner === null
+    ? '—'
+    : isTwo
+      ? (game.players[game.matchWinner]?.name ?? '—')
+      : game.matchWinner === 0
+        ? 'تیم اول'
+        : 'تیم دوم';
   return [
-    `🏆 پایان مسابقهٔ حکم (${game.id})`,
+    `🏆 پایان مسابقهٔ ${isTwo ? 'حکم دو نفره' : 'حکم'} (${game.id})`,
     `نتیجهٔ نهایی: ${game.points[0]} - ${game.points[1]}`,
     `برنده: ${winner}`,
     `بازیکنان: ${names}`,
@@ -45,11 +56,22 @@ export function createBot(cfg: Config, store: GameStore): BotHandle | null {
 
   bot.command('newgame', async (ctx) => {
     const chatId = ctx.chat.type === 'private' ? null : ctx.chat.id;
-    const game = store.create(chatId);
+    const game = store.create(chatId, '4');
     const url = `${cfg.webappUrl}?g=${game.id}`;
     const kb = new InlineKeyboard().webApp('🎲 ورود به بازی', url);
     await ctx.reply(
-      `🃏 بازی حکم جدید — کد: ${game.id}\n۴ بازیکن دکمه را بزنند تا جوین شوند و بازی شروع شود.`,
+      `🃏 بازی حکم ۴ نفره — کد: ${game.id}\n۴ بازیکن دکمه را بزنند تا جوین شوند و بازی شروع شود.`,
+      { reply_markup: kb }
+    );
+  });
+
+  bot.command('newgame2', async (ctx) => {
+    const chatId = ctx.chat.type === 'private' ? null : ctx.chat.id;
+    const game = store.create(chatId, '2');
+    const url = `${cfg.webappUrl}?g=${game.id}`;
+    const kb = new InlineKeyboard().webApp('🎲 ورود به بازی', url);
+    await ctx.reply(
+      `🃏 بازی حکم دو نفره — کد: ${game.id}\n۲ بازیکن دکمه را بزنند تا جوین شوند و بازی شروع شود.`,
       { reply_markup: kb }
     );
   });
@@ -57,12 +79,14 @@ export function createBot(cfg: Config, store: GameStore): BotHandle | null {
   bot.command('games', async (ctx) => {
     const games = store.lobbyGames().slice(0, 10);
     if (games.length === 0) {
-      await ctx.reply('بازی بازی وجود ندارد. با /newgame یکی بسازید.');
+      await ctx.reply('بازی‌ای وجود ندارد. با /newgame یا /newgame2 یکی بسازید.');
       return;
     }
     const kb = new InlineKeyboard();
     for (const g of games) {
-      kb.webApp(`بازی ${g.id} (${g.players.filter(Boolean).length}/4)`, `${cfg.webappUrl}?g=${g.id}`);
+      const cap = g.mode === '2' ? 2 : 4;
+      const kind = g.mode === '2' ? '۲نفره' : '۴نفره';
+      kb.webApp(`بازی ${g.id} — ${kind} (${g.players.filter(Boolean).length}/${cap})`, `${cfg.webappUrl}?g=${g.id}`);
     }
     await ctx.reply('🎮 بازی‌های در انتظار:', { reply_markup: kb });
   });

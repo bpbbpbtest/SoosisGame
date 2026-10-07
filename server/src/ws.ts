@@ -2,7 +2,7 @@ import http from 'node:http';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
-import { GameError, type Action, type ClientMsg, type HokmGame, type ServerMsg } from 'shared';
+import { GameError, type Action, type ClientMsg, type ManagedGame, type ServerMsg } from 'shared';
 import type { Config } from './config';
 import { verifyInitData, type AuthedUser } from './auth';
 import type { GameStore } from './store';
@@ -10,12 +10,12 @@ import type { GameStore } from './store';
 interface Conn {
   ws: WebSocket;
   user: AuthedUser;
-  game: HokmGame;
+  game: ManagedGame;
   seat: number | null;
 }
 
 export interface ServerHooks {
-  onMatchEnd: (game: HokmGame) => void;
+  onMatchEnd: (game: ManagedGame) => void;
 }
 
 export interface RunningServer {
@@ -35,7 +35,7 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
     send(conn, { t: 'state', state: conn.game.view(conn.seat) });
   }
 
-  function broadcast(game: HokmGame): void {
+  function broadcast(game: ManagedGame): void {
     const set = connsByGame.get(game.id);
     if (!set || set.size === 0) return;
     for (const conn of set) sendState(conn);
@@ -84,6 +84,12 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
         case 'bam':
           g.chooseBam(id, action.cont);
           break;
+        case 'burn':
+          g.burnCards(id, action.cards);
+          break;
+        case 'drawPick':
+          g.drawPick(id, action.keep);
+          break;
         case 'next':
           g.nextRound(id);
           break;
@@ -105,7 +111,7 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
     }
   }
 
-  function parseConn(req: IncomingMessage): { user: AuthedUser; game: HokmGame } | { error: string } {
+  function parseConn(req: IncomingMessage): { user: AuthedUser; game: ManagedGame } | { error: string } {
     const url = new URL(req.url || '/', 'http://localhost');
     const initData = url.searchParams.get('initData') || '';
     const code = (url.searchParams.get('game') || '').toUpperCase();
@@ -116,7 +122,7 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
     return { user, game };
   }
 
-  function seatFor(game: HokmGame, user: AuthedUser): number | null {
+  function seatFor(game: ManagedGame, user: AuthedUser): number | null {
     const existing = game.seatOf(user.id);
     if (existing !== null) return existing;
     if (game.phase === 'lobby') {
