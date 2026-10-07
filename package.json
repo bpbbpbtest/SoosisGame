@@ -1,0 +1,22 @@
+{
+  "name": "soosisgame",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "shared",
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "build": "npm run build -w web",
+    "test": "npm run test -w shared",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run typecheck",
+    "start": "npm run start -w server",
+    "dev:server": "npm run dev -w server",
+    "dev:web": "npm run dev -w web"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

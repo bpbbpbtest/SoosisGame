@@ -1,0 +1,118 @@
+name: Run Bot
+
+on:
+  workflow_dispatch:
+  schedule:
+    # هر ۵ دقیقه: اگر اجرای قبلی تمام شد فوراً ربات را دوباره بالا می‌آورد
+    - cron: '*/5 * * * *'
+
+concurrency:
+  group: run-bot
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Start Cloudflare tunnel
+        id: tunnel
+        run: |
+          set -e
+          curl -sSL -o /tmp/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x /tmp/cloudflared
+          nohup /tmp/cloudflared tunnel --url http://127.0.0.1:8787 --no-autoupdate > /tmp/tunnel.log 2>&1 &
+          echo $! > /tmp/tunnel.pid
+          for i in $(seq 1 60); do
+            URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/tunnel.log | head -n1 || true)
+            if [ -n "$URL" ]; then
+              echo "url=$URL" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::cloudflared tunnel failed"
+          cat /tmp/tunnel.log
+          exit 1
+
+      - name: Write mini-app config
+        run: printf '{"ws":"%s"}\n' "${{ steps.tunnel.outputs.url }}" > web/public/config.json
+
+      - name: Build mini app
+        run: npm run build
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+
+      - name: Start bot and game server
+        run: |
+          set -e
+          nohup npm run start > /tmp/server.log 2>&1 &
+          echo $! > /tmp/server.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8787/health > /dev/null; then
+              echo "server is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::server did not become healthy"
+          cat /tmp/server.log
+          exit 1
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          WEBAPP_URL: ${{ secrets.WEBAPP_URL || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}
+          TG_OWNER_ID: ${{ secrets.TG_OWNER_ID }}
+          PORT: '8787'
+          ALLOW_DEV: ''
+          MATCH_TARGET: '7'
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+      - name: Deploy Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Keep server alive (max ~340 min)
+        run: |
+          FAIL=0
+          for i in $(seq 1 680); do
+            if curl -sf http://127.0.0.1:8787/health > /dev/null; then
+              FAIL=0
+            else
+              FAIL=$((FAIL+1))
+              if [ "$FAIL" -ge 3 ]; then
+                echo "::error::server became unhealthy"
+                cat /tmp/server.log
+                exit 1
+              fi
+            fi
+            sleep 30
+          done
+          echo "time budget reached, shutting down"
+          kill "$(cat /tmp/server.pid)" 2>/dev/null || true
+          sleep 3
