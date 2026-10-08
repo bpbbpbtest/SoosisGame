@@ -10,6 +10,7 @@ import {
   type PlayerView,
 } from 'shared';
 import { CardView, SeatPanel, SuitButton } from './components';
+import { useAceReveal } from './useAceReveal';
 
 interface Props {
   state: PlayerView;
@@ -37,8 +38,15 @@ export function GameTable({ state, act }: Props) {
   const yourTeam = you !== null ? teamOf(you) : null;
   const seatName = (s: number | null) =>
     s !== null && state.players[s] ? state.players[s]!.name : '—';
-  const playedFor = (s: number): CardId | null =>
-    state.trick.find((tc) => tc.seat === s)?.card ?? null;
+  const reveal = useAceReveal(state.aceLog, state.hakem, 4);
+  const fieldPosOf = (seat: number): string => {
+    const d = (((seat - anchor) % 4) + 4) % 4;
+    return (['pos-0', 'pos-1', 'pos-2', 'pos-3'] as const)[d];
+  };
+  const fieldCards: { seat: number; card: CardId; ace: boolean }[] =
+    state.phase === 'play'
+      ? state.trick.map((tc) => ({ seat: tc.seat, card: tc.card, ace: false }))
+      : reveal.cards;
 
   const remaining =
     state.deadline !== null ? Math.max(0, Math.ceil((state.deadline - now) / 1000)) : null;
@@ -170,7 +178,7 @@ export function GameTable({ state, act }: Props) {
           ) : (
             <span className="trump-badge">حکم: —</span>
           )}
-          <span>حاکم: {seatName(state.hakem)}</span>
+          <span>حاکم: {reveal.running ? '…تعیین' : seatName(state.hakem)}</span>
           <span>دور تا {state.matchTarget}</span>
         </div>
       </header>
@@ -184,38 +192,25 @@ export function GameTable({ state, act }: Props) {
             player={state.players[seat]}
             position={pos}
             isTurn={state.turn === seat}
-            played={playedFor(seat)}
+            hideRoles={reveal.running}
           />
         ))}
-        <div className={`seat bottom-me ${state.turn === anchor ? 'turn' : ''}`}>
-          {state.players[anchor] ? (
-            <>
-              <span className="seat-name">
-                {state.players[anchor]!.name}
-                {state.players[anchor]!.isHakem ? ' 👑' : ''}
-                {state.players[anchor]!.isPartner ? ' 🤝' : ''}
-              </span>
-              <span className="seat-cards">{state.players[anchor]!.cardCount} ورق</span>
-            </>
-          ) : null}
-          {playedFor(anchor) ? (
-            <div className="played-card">
-              <CardView card={playedFor(anchor)!} size="md" />
-            </div>
-          ) : null}
-          {state.turn === anchor ? <span className="turn-dot" aria-hidden /> : null}
-        </div>
       </div>
 
       <div className="trick-area">
-        {state.aceLog.length > 0 && (state.phase === 'cut' || state.phase === 'trump') ? (
-          <div className="ace-log">
-            <span className="ace-caption">تعیین حاکم (اولین آس):</span>
-            <div className="ace-cards">
-              {state.aceLog.map((c, i) => (
-                <CardView key={`${c}-${i}`} card={c} size="sm" />
-              ))}
-            </div>
+        {fieldCards.map(({ seat, card, ace }) => (
+          <div
+            key={`${seat}-${card}`}
+            className={`trick-card ${fieldPosOf(seat)}${ace ? ' is-ace' : ''}`}
+          >
+            <CardView card={card} size="md" />
+          </div>
+        ))}
+        {reveal.active ? (
+          <div className={`hakem-reveal${reveal.done ? ' done' : ''}`}>
+            {reveal.done
+              ? `تک (آس) آمد — حاکم: ${seatName(state.hakem)}`
+              : `تعیین حاکم — کارت ${reveal.revealed} از ${reveal.total}`}
           </div>
         ) : null}
         {state.trick.length === 0 && state.phase === 'play' ? (
@@ -240,7 +235,8 @@ export function GameTable({ state, act }: Props) {
             const dim = state.can.play && !isLegal;
             return (
               <CardView
-                key={`${card}-${i}`}
+                key={card}
+                style={{ animationDelay: `${Math.min(i * 45, 260)}ms` }}
                 card={card}
                 size="lg"
                 dim={dim}
@@ -269,8 +265,14 @@ export function GameTable({ state, act }: Props) {
   );
 
   function renderActions(): ReactNode {
+    const revealHint = reveal.running
+      ? `تعیین حاکم — کارت ${reveal.revealed} از ${reveal.total}…`
+      : null;
     switch (state.phase) {
       case 'cut': {
+        if (revealHint) {
+          return <span className="waiting">{revealHint}</span>;
+        }
         if (state.can.cut) {
           return (
             <div className="action-group">
@@ -301,6 +303,9 @@ export function GameTable({ state, act }: Props) {
       }
 
       case 'trump': {
+        if (revealHint) {
+          return <span className="waiting">{revealHint}</span>;
+        }
         return (
           <div className="action-group">
             {state.can.trump ? (

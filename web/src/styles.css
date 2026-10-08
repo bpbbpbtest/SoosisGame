@@ -388,12 +388,6 @@ button:active {
   top: 45%;
 }
 
-.seat.bottom-me {
-  position: relative;
-  margin-top: auto;
-  justify-content: center;
-}
-
 .seat.turn {
   border-color: var(--gold);
   box-shadow: 0 0 14px rgba(232, 193, 90, 0.45);
@@ -456,9 +450,64 @@ button:active {
   justify-content: center;
 }
 
-.played-card {
-  display: flex;
-  align-items: center;
+/* کارت بازی‌شده / کارت تعیین حاکم — روی زمین، جلوی خود بازیکن */
+.trick-card {
+  position: absolute;
+  z-index: 1;
+}
+
+.trick-card .card {
+  animation: played-in 0.3s ease-out backwards;
+}
+
+.trick-card.pos-0 {
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.trick-card.pos-1 {
+  right: 12%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.trick-card.pos-2 {
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.trick-card.pos-3 {
+  left: 12%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.trick-card.is-ace {
+  filter: drop-shadow(0 0 8px rgba(232, 193, 90, 0.95));
+  z-index: 2;
+}
+
+@keyframes played-in {
+  from {
+    opacity: 0;
+    transform: translateY(-22px) scale(0.6);
+  }
+}
+
+.hakem-reveal {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  padding: 0 8px;
+  z-index: 2;
+}
+
+.hakem-reveal.done {
+  color: var(--gold);
+  font-weight: 800;
+  font-size: 14px;
 }
 
 .table-hint {
@@ -617,6 +666,18 @@ button:active {
   margin-right: auto;
 }
 
+/* پخش ورق: هر کارت یکی‌یکی می‌آید */
+.hand .card {
+  animation: deal-in 0.34s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+}
+
+@keyframes deal-in {
+  from {
+    opacity: 0;
+    transform: translateY(-48px) scale(0.92);
+  }
+}
+
 .hand.my-turn .card.playable {
   box-shadow: 0 0 12px rgba(232, 193, 90, 0.7);
 }
@@ -720,6 +781,55 @@ input[type='range'] {
   justify-content: center;
   z-index: 50;
   padding: 20px;
+}
+
+/* لحظهٔ برداشتن ورق دوم از زمین */
+.take-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 18, 12, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 70;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+  animation: fade-in 0.18s ease-out;
+}
+
+.take-overlay.leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.take-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.take-box span {
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.take-box .card {
+  animation: take-pop 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
+}
+
+@keyframes take-pop {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.5) rotate(-6deg);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }
 
 .panel {

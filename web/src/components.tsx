@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import {
   RANK_DISPLAY,
   SUIT_FA,
@@ -17,6 +18,7 @@ export function CardView(props: {
   playable?: boolean;
   onClick?: () => void;
   label?: string;
+  style?: CSSProperties;
 }) {
   const s = suitOf(props.card);
   const cls = ['card', props.size ?? 'md', isRed(s) ? 'red' : 'black'];
@@ -26,6 +28,7 @@ export function CardView(props: {
     <button
       type="button"
       className={cls.join(' ')}
+      style={props.style}
       onClick={props.onClick}
       disabled={!props.onClick}
       aria-label={props.card}
@@ -42,7 +45,7 @@ export function SeatPanel(props: {
   position: 'top' | 'left' | 'right';
   isTurn: boolean;
   you?: boolean;
-  played?: CardId | null;
+  hideRoles?: boolean;
 }) {
   const p = props.player;
   return (
@@ -54,16 +57,11 @@ export function SeatPanel(props: {
           {props.you ? ' (شما)' : ''}
         </span>
         <span className="seat-badges">
-          {p?.isHakem ? <span title="حاکم">👑</span> : null}
-          {p?.isPartner ? <span title="یار حاکم">🤝</span> : null}
+          {p?.isHakem && !props.hideRoles ? <span title="حاکم">👑</span> : null}
+          {p?.isPartner && !props.hideRoles ? <span title="یار حاکم">🤝</span> : null}
         </span>
       </div>
       <div className="seat-cards">{p ? `${p.cardCount} ورق` : ''}</div>
-      {props.played ? (
-        <div className="played-card">
-          <CardView card={props.played} size="md" />
-        </div>
-      ) : null}
       {props.isTurn ? <span className="turn-dot" aria-hidden /> : null}
     </div>
   );

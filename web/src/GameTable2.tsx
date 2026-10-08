@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   SUIT_FA,
   SUIT_SYMBOL,
@@ -8,6 +8,7 @@ import {
   type PlayerView2,
 } from 'shared';
 import { CardView, SeatPanel, SuitButton } from './components';
+import { useAceReveal } from './useAceReveal';
 
 interface Props {
   state: PlayerView2;
@@ -18,6 +19,9 @@ export function GameTable2({ state, act }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [burnSel, setBurnSel] = useState<CardId[]>([]);
   const [copied, setCopied] = useState(false);
+  const handBeforeRef = useRef<CardId[] | null>(null);
+  const takeTimersRef = useRef<number[]>([]);
+  const [take, setTake] = useState<{ card: CardId; leaving: boolean } | null>(null);
 
   useEffect(() => {
     if (state.deadline === null) return;
@@ -30,13 +34,40 @@ export function GameTable2({ state, act }: Props) {
     setBurnSel([]);
   }, [state.phase, state.turn]);
 
+  useEffect(() => {
+    return () => {
+      takeTimersRef.current.forEach((t) => window.clearTimeout(t));
+      takeTimersRef.current = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    const prev = handBeforeRef.current;
+    handBeforeRef.current = null;
+    if (!prev) return;
+    const added = state.hand.find((c) => !prev.includes(c));
+    if (added === undefined) return;
+    takeTimersRef.current.forEach((t) => window.clearTimeout(t));
+    takeTimersRef.current = [];
+    setTake({ card: added, leaving: false });
+    takeTimersRef.current.push(
+      window.setTimeout(() => setTake((x) => (x ? { ...x, leaving: true } : x)), 950),
+      window.setTimeout(() => setTake(null), 1230),
+    );
+  }, [state.hand]);
+
   const you = state.you;
   const anchor = you ?? 0;
   const opp = 1 - anchor;
   const seatName = (s: number | null) =>
     s !== null && state.players[s] ? state.players[s]!.name : '—';
-  const playedFor = (s: number): CardId | null =>
-    state.trick.find((tc) => tc.seat === s)?.card ?? null;
+  const reveal = useAceReveal(state.aceLog, state.hakem, 2);
+  const fieldPosOf = (seat: number): 'pos-0' | 'pos-2' =>
+    ((seat - anchor) % 2 + 2) % 2 === 0 ? 'pos-0' : 'pos-2';
+  const fieldCards: { seat: number; card: CardId; ace: boolean }[] =
+    state.phase === 'play'
+      ? state.trick.map((tc) => ({ seat: tc.seat, card: tc.card, ace: false }))
+      : reveal.cards;
 
   const remaining =
     state.deadline !== null ? Math.max(0, Math.ceil((state.deadline - now) / 1000)) : null;
@@ -166,7 +197,7 @@ export function GameTable2({ state, act }: Props) {
           ) : (
             <span className="trump-badge">حکم: —</span>
           )}
-          <span>حاکم: {seatName(state.hakem)}</span>
+          <span>حاکم: {reveal.running ? '…تعیین' : seatName(state.hakem)}</span>
           <span>دور تا {state.matchTarget}</span>
         </div>
       </header>
@@ -178,36 +209,24 @@ export function GameTable2({ state, act }: Props) {
           player={state.players[opp]}
           position="top"
           isTurn={state.turn === opp}
-          played={playedFor(opp)}
+          hideRoles={reveal.running}
         />
-        <div className={`seat bottom-me ${state.turn === anchor ? 'turn' : ''}`}>
-          {state.players[anchor] ? (
-            <>
-              <span className="seat-name">
-                {state.players[anchor]!.name}
-                {state.players[anchor]!.isHakem ? ' 👑' : ''}
-              </span>
-              <span className="seat-cards">{state.players[anchor]!.cardCount} ورق</span>
-            </>
-          ) : null}
-          {playedFor(anchor) ? (
-            <div className="played-card">
-              <CardView card={playedFor(anchor)!} size="md" />
-            </div>
-          ) : null}
-          {state.turn === anchor ? <span className="turn-dot" aria-hidden /> : null}
-        </div>
       </div>
 
       <div className="trick-area">
-        {state.aceLog.length > 0 && state.phase === 'trump' ? (
-          <div className="ace-log">
-            <span className="ace-caption">تعیین حاکم (اولین آس):</span>
-            <div className="ace-cards">
-              {state.aceLog.map((c, i) => (
-                <CardView key={`${c}-${i}`} card={c} size="sm" />
-              ))}
-            </div>
+        {fieldCards.map(({ seat, card, ace }) => (
+          <div
+            key={`${seat}-${card}`}
+            className={`trick-card ${fieldPosOf(seat)}${ace ? ' is-ace' : ''}`}
+          >
+            <CardView card={card} size="md" />
+          </div>
+        ))}
+        {reveal.active ? (
+          <div className={`hakem-reveal${reveal.done ? ' done' : ''}`}>
+            {reveal.done
+              ? `تک (آس) آمد — حاکم: ${seatName(state.hakem)}`
+              : `تعیین حاکم — کارت ${reveal.revealed} از ${reveal.total}`}
           </div>
         ) : null}
         {state.phase === 'draw' && state.draw ? (
@@ -237,16 +256,27 @@ export function GameTable2({ state, act }: Props) {
 
       <div className="actionbar">{renderActions()}</div>
 
+      {take ? (
+        <div className={`take-overlay ${take.leaving ? 'leaving' : ''}`}>
+          <div className="take-box">
+            <span>برداشتی — به دست اضافه شد</span>
+            <CardView card={take.card} size="lg" />
+          </div>
+        </div>
+      ) : null}
+
       <div className={`hand ${state.can.play || inBurn ? 'my-turn' : ''}`}>
         {state.hand.length === 0 ? (
           <span className="hand-empty">—</span>
         ) : (
-          state.hand.map((card, i) => {
+          (take ? state.hand.filter((c) => c !== take.card) : state.hand).map((card, i) => {
+            const delay = { animationDelay: `${Math.min(i * 45, 260)}ms` };
             if (inBurn) {
               const selected = burnSel.includes(card);
               return (
                 <CardView
-                  key={`${card}-${i}`}
+                  key={card}
+                  style={delay}
                   card={card}
                   size="lg"
                   playable={selected}
@@ -258,7 +288,8 @@ export function GameTable2({ state, act }: Props) {
             const dim = state.can.play && !isLegal;
             return (
               <CardView
-                key={`${card}-${i}`}
+                key={card}
+                style={delay}
                 card={card}
                 size="lg"
                 dim={dim}
@@ -295,8 +326,14 @@ export function GameTable2({ state, act }: Props) {
   }
 
   function renderActions(): ReactNode {
+    const revealHint = reveal.running
+      ? `تعیین حاکم — کارت ${reveal.revealed} از ${reveal.total}…`
+      : null;
     switch (state.phase) {
       case 'trump': {
+        if (revealHint) {
+          return <span className="waiting">{revealHint}</span>;
+        }
         if (state.can.trump) {
           return (
             <div className="action-group">
@@ -366,7 +403,17 @@ export function GameTable2({ state, act }: Props) {
                 <button type="button" className="primary" onClick={() => act({ k: 'drawPick', keep: true })}>
                   نگه دار — دومی بسوزد
                 </button>
-                <button type="button" className="ghost" onClick={() => act({ k: 'drawPick', keep: false })}>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => {
+                    handBeforeRef.current = state.hand;
+                    act({ k: 'drawPick', keep: false });
+                    window.setTimeout(() => {
+                      handBeforeRef.current = null;
+                    }, 3000);
+                  }}
+                >
                   بسوزان — دومی را بردار
                 </button>
               </div>
