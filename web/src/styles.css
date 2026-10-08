@@ -474,6 +474,7 @@ button:active {
 .trick-card {
   position: absolute;
   z-index: 1;
+  perspective: 700px;
 }
 
 .trick-card .card {
@@ -482,6 +483,12 @@ button:active {
 
 .trick-card.pos-0 {
   bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.trick-card.pos-1 {
+  bottom: 84px;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -547,22 +554,31 @@ button:active {
   transform: translateY(-50%);
 }
 
-/* پشتهٔ ورق‌های برداشته‌شده — رو‌به‌پایین، جلوی هر بازیکن */
+/* پشتهٔ ورق‌های برداشته‌شده — هر دست یک گروهٔ جدا، کنار هم ردیف می‌شوند */
 .trick-stack {
   position: absolute;
-  width: 32px;
-  height: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 4px;
+  direction: ltr;
   pointer-events: none;
+}
+
+.trick-stack .ts-group {
+  position: relative;
+  flex: 0 0 auto;
+  animation: stack-in 0.3s ease-out backwards;
 }
 
 .trick-stack .st-card {
   position: absolute;
-  inset: 0;
-  animation: stack-in 0.28s ease-out backwards;
+  top: 0;
 }
 
 .trick-stack .card-face-back {
-  border-radius: 5px;
+  border-radius: 4px;
+  border-width: 1.5px;
 }
 
 @keyframes stack-in {
@@ -573,22 +589,31 @@ button:active {
 
 .seat.top .trick-stack {
   top: calc(100% + 6px);
-  left: calc(50% - 66px);
+  right: calc(50% + 27px);
+  left: auto;
+  width: 120px;
 }
 
-.seat.left .trick-stack {
-  left: calc(100% + 8px);
-  top: calc(50% + 52px);
+.seats.duo .seat.top .trick-stack {
+  left: 50%;
+  right: auto;
+  width: 168px;
+  transform: translateX(-50%);
 }
 
+.seat.left .trick-stack,
 .seat.right .trick-stack {
-  right: calc(100% + 8px);
-  top: calc(50% + 52px);
+  top: calc(100% + 6px);
+  left: 6px;
+  right: auto;
+  width: calc(100% - 12px);
 }
 
 .trick-area .trick-stack.self {
-  bottom: 8px;
-  left: 14px;
+  bottom: 26px;
+  left: 10px;
+  right: auto;
+  width: calc(50% - 47px);
 }
 
 /* پشت ورق (برای پرواز وارونه و جمع‌کردن دست) */

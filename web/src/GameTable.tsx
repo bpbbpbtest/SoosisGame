@@ -233,12 +233,12 @@ export function GameTable({ state, act }: Props) {
                   ? {
                       card: fc.card,
                       ace: fc.ace,
-                      hidden: motion.hidden.has(fc.card),
                       reveal: reveal.active,
                     }
                   : null
               }
               stack={stackFor(seat)}
+              perGroup={4}
             />
           );
         })}
@@ -250,12 +250,11 @@ export function GameTable({ state, act }: Props) {
             key={card}
             data-fcc={card}
             className={`trick-card pos-0${ace ? ' is-ace' : ''}${reveal.active ? ' reveal' : ''}`}
-            style={motion.hidden.has(card) ? { visibility: 'hidden' } : undefined}
           >
             <CardView card={card} size="md" />
           </div>
         ))}
-        <TrickStack seat={anchor} count={stackFor(anchor)} self />
+        <TrickStack seat={anchor} count={stackFor(anchor)} self perGroup={4} />
         {reveal.active ? (
           <div className={`hakem-reveal${reveal.done ? ' done' : ''}`}>
             {reveal.done

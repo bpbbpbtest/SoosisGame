@@ -83,6 +83,55 @@ function tiltOf(dx: number, dy: number): number {
   return Math.max(-9, Math.min(9, (dx / d) * 9));
 }
 
+// ورود کارت بازی‌شده به جایگاهش: انیمیشن روی خود المان، بدون مخفی‌کردن —
+// اگر انیمیشن اجرا نشود کارت هم‌جا دیده می‌شود (هرگز ناپدید نمی‌شود)
+function animateSlotIn(el: HTMLElement, from: Rect, flip: boolean): void {
+  try {
+    const cardEl = el.querySelector<HTMLElement>(':scope > .card') ?? el;
+    const to = cardEl.getBoundingClientRect();
+    const dx = from.left - to.left;
+    const dy = from.top - to.top;
+    const arc = arcOf(dx, dy);
+    const tilt = flip ? 0 : tiltOf(dx, dy);
+    const holder = cardEl as HTMLElement & {
+      getAnimations?: () => Array<{ cancel: () => void }>;
+    };
+    for (const a of holder.getAnimations?.() ?? []) a.cancel();
+    if (flip) {
+      cardEl.animate(
+        [
+          {
+            transform: `translate(${dx}px, ${dy}px) rotateY(-90deg) scale(1.1)`,
+            opacity: 0.4,
+            offset: 0,
+          },
+          {
+            transform: `translate(${dx * 0.5}px, ${dy * 0.5 - arc}px) rotateY(-35deg) scale(1.05)`,
+            opacity: 1,
+            offset: 0.58,
+          },
+          { transform: 'translate(0px, 0px) rotateY(0deg) scale(1)', opacity: 1, offset: 1 },
+        ],
+        { duration: 640, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' },
+      );
+    } else {
+      cardEl.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px) rotate(${tilt}deg) scale(1.06)`, offset: 0 },
+          {
+            transform: `translate(${dx * 0.5}px, ${dy * 0.5 - arc}px) rotate(${tilt}deg) scale(1.03)`,
+            offset: 0.55,
+          },
+          { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 1 },
+        ],
+        { duration: 560, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' },
+      );
+    }
+  } catch {
+    /* انیمیشن در دسترس نیست — کارت سرِ جای خودش می‌ماند */
+  }
+}
+
 // پرواز معمولی: مسیر کمانی با کمی انحراف و چرخش
 function animateFly(el: HTMLElement, f: Flight, onDone: () => void): void {
   if (f.kind === 'burn') {
@@ -373,9 +422,11 @@ export function useTableMotion(args: Args): {
     null,
   );
   const pendingBurn = useRef<{ card: CardId; from: Rect }[] | null>(null);
-  const pendingGather = useRef<{ cards: { card: CardId; from: Rect }[]; winner: number } | null>(
-    null,
-  );
+  const pendingGather = useRef<{
+    cards: { card: CardId; from: Rect }[];
+    winner: number;
+    readyAt: number;
+  } | null>(null);
   const lastRects = useRef(new Map<CardId, Rect>());
   const prevTrick = useRef<TrickEntry[]>([]);
   const gatherDone = useRef(0);
@@ -387,12 +438,7 @@ export function useTableMotion(args: Args): {
   const [markerVisible, setMarkerVisible] = useState(false);
   const [deal, setDeal] = useState<Deal | null>(null);
   const [lingering, setLingering] = useState<TrickEntry[] | null>(null);
-
-  const startFlight = useCallback((spec: Omit<Flight, 'id'>) => {
-    const id = ++seq;
-    setHidden((s) => new Set(s).add(spec.card));
-    setFlights((xs) => [...xs, { id, ...spec }]);
-  }, []);
+  const [gatherTick, setGatherTick] = useState(0);
 
   const finishFlight = useCallback((f: Flight) => {
     setFlights((xs) => xs.filter((x) => x.id !== f.id));
@@ -402,6 +448,18 @@ export function useTableMotion(args: Args): {
       return n;
     });
   }, []);
+
+  const startFlight = useCallback(
+    (spec: Omit<Flight, 'id'>) => {
+      const id = ++seq;
+      const f: Flight = { id, ...spec };
+      setHidden((s) => new Set(s).add(spec.card));
+      setFlights((xs) => [...xs, f]);
+      // ضامن ایمنی: اگر پرواز تمام نشد، ورق پنهان دوباره دیده شود
+      window.setTimeout(() => finishFlight(f), 2500);
+    },
+    [finishFlight],
+  );
 
   const notePlay = useCallback((card: CardId, from: Rect) => {
     const p = { card, from };
@@ -472,37 +530,46 @@ export function useTableMotion(args: Args): {
     if (!pg) return;
     pendingGather.current = null;
     gatherDone.current = 0;
+    // موقعیت زندهٔ کارت‌ها را همین حالا بخوان — انیمیشن‌های ورود تا این لحظه تمام شده‌اند
+    let cards = pg.cards;
+    const root = rootRef.current;
+    if (root) {
+      const live: { card: CardId; from: Rect }[] = [];
+      root.querySelectorAll<HTMLElement>('[data-fcc]').forEach((el) => {
+        const c = el.getAttribute('data-fcc');
+        if (c) live.push({ card: c as CardId, from: el.getBoundingClientRect() });
+      });
+      if (live.length === pg.cards.length) cards = live;
+    }
     setMarkerSeat(pg.winner);
     setMarkerVisible(false);
     setLingering(null);
-    setGather({ cards: pg.cards, winner: pg.winner, target: null, felt: null, stage: 'measure' });
-  }, []);
+    setGather({ cards, winner: pg.winner, target: null, felt: null, stage: 'measure' });
+  }, [rootRef]);
 
-  // کارت تازه بازی‌شده: ورق خودت از دست پرواز می‌کند؛ کارت حریف از پنل اسمش به جایگاهش
+  // کارت تازه بازی‌شده: هر دو کارت با انیمیشن روی زمین می‌نشینند (بدون مخفی‌کردن)
   useEffect(() => {
     const prev = prevTrick.current;
     const cur = trick;
     if (cur.length > prev.length && rootRef.current) {
+      if (prev.length === 0 && pendingGather.current) {
+        // دست بعدی زود شروع شد — جمعِ دستِ قبلی را همین حالا انجام بده
+        pendingGather.current.readyAt = 0;
+        setGatherTick((x) => x + 1);
+        if (flights.length === 0) startPendingGather();
+      }
       for (const tc of cur) {
         if (prev.some((p) => p.seat === tc.seat && p.card === tc.card)) continue;
         const toEl = rootRef.current.querySelector<HTMLElement>(`[data-fcc="${tc.card}"]`);
         if (!toEl) continue;
-        const to = toEl.getBoundingClientRect();
         const pp = pendingPlay.current;
         if (pp && pp.card === tc.card) {
           pendingPlay.current = null;
-          startFlight({ card: tc.card, from: pp.from, to, size: 'lg', flip: false });
+          animateSlotIn(toEl, pp.from, false);
           continue;
         }
         const panel = rootRef.current.querySelector<HTMLElement>(`[data-seat="${tc.seat}"]`);
-        if (!panel) continue;
-        startFlight({
-          card: tc.card,
-          from: centerRect(panel.getBoundingClientRect()),
-          to,
-          size: 'md',
-          flip: true,
-        });
+        if (panel) animateSlotIn(toEl, centerRect(panel.getBoundingClientRect()), true);
       }
     }
     if (
@@ -513,8 +580,9 @@ export function useTableMotion(args: Args): {
     ) {
       const cards = [...lastRects.current.entries()].map(([card, from]) => ({ card, from }));
       lastRects.current = new Map();
-      pendingGather.current = { cards, winner: leader };
-      if (flights.length === 0) startPendingGather();
+      // مکث کوتاه: هر دو کارت کنار هم بمانند، بعد با هم جمع شوند
+      pendingGather.current = { cards, winner: leader, readyAt: Date.now() + 1150 };
+      setGatherTick((x) => x + 1);
     } else if (prev.length === fullN && cur.length === 0) {
       setLingering(null);
     } else if (cur.length > 0 && markerSeat !== null) {
@@ -522,18 +590,28 @@ export function useTableMotion(args: Args): {
       setMarkerVisible(false);
     }
     prevTrick.current = cur;
-  }, [trick, leader, fullN, markerSeat, rootRef, startFlight, flights, startPendingGather]);
+  }, [trick, leader, fullN, markerSeat, rootRef, flights, startPendingGather]);
 
-  // جمع‌کردن دست فقط وقتی پروازهای در جریان تمام شده‌اند شروع می‌شود
+  // جمع‌کردن دست: بعد از مکث و وقتی پروازهای در جریان تمام شده‌اند
   useEffect(() => {
-    if (flights.length > 0) return;
-    if (pendingGather.current === null) return;
-    startPendingGather();
-  }, [flights, startPendingGather]);
+    const pg = pendingGather.current;
+    if (!pg) return;
+    const fire = () => {
+      if (flights.length === 0 && pendingGather.current) startPendingGather();
+    };
+    const wait = Math.max(0, pg.readyAt - Date.now());
+    if (wait === 0) {
+      fire();
+      return;
+    }
+    const t = window.setTimeout(fire, wait);
+    return () => window.clearTimeout(t);
+  }, [flights, gatherTick, startPendingGather]);
 
   // فازهای بین‌دور (کوپ/حکم/سوزاندن/برداشت) نشانِ دور قبل را پاک می‌کنند
   useEffect(() => {
     if (phase === 'play' || phase === 'bam' || phase === 'roundEnd') return;
+    pendingGather.current = null;
     if (markerSeat !== null) {
       setMarkerSeat(null);
       setMarkerVisible(false);

@@ -40,25 +40,38 @@ export function CardView(props: {
   );
 }
 
-export function TrickStack(props: { seat: number; count: number; self?: boolean }) {
+export function TrickStack(props: {
+  seat: number;
+  count: number;
+  self?: boolean;
+  perGroup?: number;
+}) {
   const n = Math.min(Math.max(props.count, 0), 13);
   if (n === 0) return null;
+  const perGroup = Math.max(1, Math.min(props.perGroup ?? 4, 4));
+  const small = perGroup >= 4;
+  const w = small ? 14 : 22;
+  const h = small ? 19 : 30;
+  const off = small ? 4 : 6;
+  const gw = w + (perGroup - 1) * off;
   return (
-    <div
-      className={`trick-stack${props.self ? ' self' : ''}`}
-      data-fmk={`w${props.seat}`}
-      aria-hidden
-    >
-      {Array.from({ length: n }, (_, i) => (
+    <div className={`trick-stack${props.self ? ' self' : ''}`} aria-hidden>
+      {Array.from({ length: n }, (_, g) => (
         <div
-          key={i}
-          className="st-card"
-          style={{
-            zIndex: i + 1,
-            transform: `translateY(${-i * 1.5}px) rotate(${((i % 5) - 2) * 4}deg)`,
-          }}
+          key={g}
+          className="ts-group"
+          style={{ width: gw, height: h }}
+          data-fmk={g === n - 1 ? `w${props.seat}` : undefined}
         >
-          <div className="card-face-back" />
+          {Array.from({ length: perGroup }, (_, i) => (
+            <div
+              key={i}
+              className="st-card"
+              style={{ left: i * off, width: w, height: h, zIndex: i + 1 }}
+            >
+              <div className="card-face-back" />
+            </div>
+          ))}
         </div>
       ))}
     </div>
@@ -71,8 +84,9 @@ export function SeatPanel(props: {
   isTurn: boolean;
   you?: boolean;
   hideRoles?: boolean;
-  played?: { card: CardId; ace?: boolean; hidden?: boolean; reveal?: boolean } | null;
+  played?: { card: CardId; ace?: boolean; reveal?: boolean } | null;
   stack?: number;
+  perGroup?: number;
 }) {
   const p = props.player;
   const played = props.played;
@@ -95,12 +109,13 @@ export function SeatPanel(props: {
         <div
           className={`played-slot${played.reveal ? ' reveal' : ''}${played.ace ? ' is-ace' : ''}`}
           data-fcc={played.card}
-          style={played.hidden ? { visibility: 'hidden' } : undefined}
         >
           <CardView card={played.card} size="md" />
         </div>
       ) : null}
-      {p ? <TrickStack seat={p.seat} count={props.stack ?? 0} /> : null}
+      {p ? (
+        <TrickStack seat={p.seat} count={props.stack ?? 0} perGroup={props.perGroup} />
+      ) : null}
     </div>
   );
 }

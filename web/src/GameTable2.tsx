@@ -64,7 +64,12 @@ export function GameTable2({ state, act }: Props) {
         ? []
         : reveal.cards;
   const selfField = fieldCards.filter((c) => c.seat === anchor);
-  const theirField = fieldCards.find((c) => c.seat !== anchor) ?? null;
+  const theirFelt: { seat: number; card: CardId; ace: boolean }[] = reveal.active
+    ? []
+    : fieldCards.filter((c) => c.seat !== anchor);
+  const theirPanel = reveal.active
+    ? (fieldCards.find((c) => c.seat !== anchor) ?? null)
+    : null;
   const stackFor = (seat: number) => state.tricks[seat];
 
   const remaining =
@@ -216,23 +221,23 @@ export function GameTable2({ state, act }: Props) {
 
       {you === null ? <div className="banner spectate">تماشاچی — بازی را می‌بینید</div> : null}
 
-      <div className="seats">
+      <div className="seats duo">
         <SeatPanel
           player={state.players[opp]}
           position="top"
           isTurn={state.turn === opp}
           hideRoles={reveal.running}
           played={
-            theirField
+            theirPanel
               ? {
-                  card: theirField.card,
-                  ace: theirField.ace,
-                  hidden: motion.hidden.has(theirField.card),
+                  card: theirPanel.card,
+                  ace: theirPanel.ace,
                   reveal: reveal.active,
                 }
               : null
           }
           stack={stackFor(opp)}
+          perGroup={2}
         />
       </div>
 
@@ -242,12 +247,20 @@ export function GameTable2({ state, act }: Props) {
             key={card}
             data-fcc={card}
             className={`trick-card pos-0${ace ? ' is-ace' : ''}${reveal.active ? ' reveal' : ''}`}
-            style={motion.hidden.has(card) ? { visibility: 'hidden' } : undefined}
           >
             <CardView card={card} size="md" />
           </div>
         ))}
-        <TrickStack seat={anchor} count={stackFor(anchor)} self />
+        {theirFelt.map(({ card, ace }) => (
+          <div
+            key={card}
+            data-fcc={card}
+            className={`trick-card pos-1${ace ? ' is-ace' : ''}${reveal.active ? ' reveal' : ''}`}
+          >
+            <CardView card={card} size="md" />
+          </div>
+        ))}
+        <TrickStack seat={anchor} count={stackFor(anchor)} self perGroup={2} />
         {reveal.active ? (
           <div className={`hakem-reveal${reveal.done ? ' done' : ''}`}>
             {reveal.done
@@ -274,7 +287,7 @@ export function GameTable2({ state, act }: Props) {
             )}
           </div>
         ) : null}
-        {state.trick.length === 0 && state.phase === 'play' ? (
+        {state.trick.length === 0 && motion.lingering === null && state.phase === 'play' ? (
           <div className="table-hint">
             {state.turn !== null ? `نوبت: ${seatName(state.turn)}` : ''}
             {remaining !== null ? ` — ${remaining}ث` : ''}
