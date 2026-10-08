@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 
-const TOKEN = '8333624755:AAE8nwTOJ7l0jB92GdO3j62X9OykQFaiZ8I';
+const TOKEN = process.env.BOT_TOKEN;
+if (!TOKEN) throw new Error('BOT_TOKEN env لازم است');
 const BASE = process.argv[2] || 'https://sink-possible-edition-stylish.trycloudflare.com';
 const GAME = process.argv[3] || '4YESCP';
 

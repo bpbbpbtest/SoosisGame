@@ -1,7 +1,8 @@
 import { verifyInitData } from '../server/src/auth.ts';
 import { createHmac } from 'node:crypto';
 
-const TOKEN = '8333624755:AAE8nwTOJ7l0jB92GdO3j62X9OykQFaiZ8I';
+const TOKEN = process.env.BOT_TOKEN;
+if (!TOKEN) throw new Error('BOT_TOKEN env لازم است');
 
 const user = JSON.stringify({ id: 111, first_name: 'Test', username: 'tester' });
 const fields = { user, auth_date: String(Math.floor(Date.now() / 1000)), query_id: 'AAF_test' };
