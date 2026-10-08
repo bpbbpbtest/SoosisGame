@@ -46,7 +46,7 @@ export function SeatPanel(props: {
   isTurn: boolean;
   you?: boolean;
   hideRoles?: boolean;
-  played?: { card: CardId; ace?: boolean; hidden?: boolean } | null;
+  played?: { card: CardId; ace?: boolean; hidden?: boolean; reveal?: boolean } | null;
   marker?: boolean;
   markerVisible?: boolean;
 }) {
@@ -69,7 +69,7 @@ export function SeatPanel(props: {
       {props.isTurn ? <span className="turn-dot" aria-hidden /> : null}
       {played ? (
         <div
-          className={`played-slot${played.ace ? ' is-ace' : ''}`}
+          className={`played-slot${played.reveal ? ' reveal' : ''}${played.ace ? ' is-ace' : ''}`}
           data-fcc={played.card}
           style={played.hidden ? { visibility: 'hidden' } : undefined}
         >
@@ -79,7 +79,7 @@ export function SeatPanel(props: {
       {props.marker ? (
         <div className="played-slot">
           <div
-            className={`trick-marker${props.markerVisible ? '' : ' m-hidden'}`}
+            className={`trick-marker${props.markerVisible ? ' show' : ' m-hidden'}`}
             data-fmk=""
           />
         </div>

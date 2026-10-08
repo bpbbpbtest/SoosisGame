@@ -40,6 +40,7 @@ export function GameTable({ state, act }: Props) {
   const seatName = (s: number | null) =>
     s !== null && state.players[s] ? state.players[s]!.name : '—';
   const reveal = useAceReveal(state.aceLog, state.hakem, 4);
+  const dealing = state.phase === 'cut' || state.phase === 'trump';
   const rootRef = useRef<HTMLDivElement | null>(null);
   const motion = useTableMotion({
     rootRef,
@@ -178,22 +179,36 @@ export function GameTable({ state, act }: Props) {
     <div className="table" ref={rootRef}>
       <header className="hud">
         <div className="score">
-          <span className={`sc mine ${yourTeam !== null ? '' : ''}`}>{yourScore}</span>
+          <span key={`m-${yourScore}`} className={`sc mine ${yourTeam !== null ? '' : ''}`}>
+            {yourScore}
+          </span>
           <span className="sep">—</span>
-          <span className="sc opp">{oppScore}</span>
-          <span className="trick-count">
+          <span key={`o-${oppScore}`} className="sc opp">
+            {oppScore}
+          </span>
+          <span
+            key={`t-${yourTeam !== null ? state.tricks[yourTeam] : state.tricks[0]}-${
+              yourTeam !== null ? state.tricks[1 - yourTeam] : state.tricks[1]
+            }`}
+            className="trick-count"
+          >
             دست‌ها: {yourTeam !== null ? state.tricks[yourTeam] : state.tricks[0]} —{' '}
             {yourTeam !== null ? state.tricks[1 - yourTeam] : state.tricks[1]}
           </span>
         </div>
         <div className="hud-meta">
-          {state.trump ? (
-            <span className={`trump-badge t-${state.trump}`}>
-              حکم: {SUIT_SYMBOL[state.trump]} {SUIT_FA[state.trump]}
-            </span>
-          ) : (
-            <span className="trump-badge">حکم: —</span>
-          )}
+          <span
+            key={state.trump ?? 'no-trump'}
+            className={`trump-badge${state.trump ? ` t-${state.trump}` : ''}`}
+          >
+            {state.trump ? (
+              <>
+                حکم: {SUIT_SYMBOL[state.trump]} {SUIT_FA[state.trump]}
+              </>
+            ) : (
+              <>حکم: —</>
+            )}
+          </span>
           <span>حاکم: {reveal.running ? '…تعیین' : seatName(state.hakem)}</span>
           <span>دور تا {state.matchTarget}</span>
         </div>
@@ -213,7 +228,12 @@ export function GameTable({ state, act }: Props) {
               hideRoles={reveal.running}
               played={
                 fc
-                  ? { card: fc.card, ace: fc.ace, hidden: motion.hidden.has(fc.card) }
+                  ? {
+                      card: fc.card,
+                      ace: fc.ace,
+                      hidden: motion.hidden.has(fc.card),
+                      reveal: reveal.active,
+                    }
                   : null
               }
               marker={showMarker && motion.markerSeat === seat}
@@ -228,7 +248,7 @@ export function GameTable({ state, act }: Props) {
           <div
             key={card}
             data-fcc={card}
-            className={`trick-card pos-0${ace ? ' is-ace' : ''}`}
+            className={`trick-card pos-0${ace ? ' is-ace' : ''}${reveal.active ? ' reveal' : ''}`}
             style={motion.hidden.has(card) ? { visibility: 'hidden' } : undefined}
           >
             <CardView card={card} size="md" />
@@ -237,7 +257,7 @@ export function GameTable({ state, act }: Props) {
         {showMarker && motion.markerSeat === anchor ? (
           <div className="trick-card pos-0">
             <div
-              className={`trick-marker${motion.markerVisible ? '' : ' m-hidden'}`}
+              className={`trick-marker${motion.markerVisible ? ' show' : ' m-hidden'}`}
               data-fmk=""
             />
           </div>
@@ -272,7 +292,9 @@ export function GameTable({ state, act }: Props) {
             return (
               <CardView
                 key={card}
-                style={{ animationDelay: `${Math.min(i * 45, 260)}ms` }}
+                style={{
+                  animationDelay: `${Math.min(i * (dealing ? 55 : 45), dealing ? 680 : 260)}ms`,
+                }}
                 card={card}
                 size="lg"
                 dim={dim}

@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -9,7 +10,7 @@ import {
 import type { CardId } from 'shared';
 import { CardView } from './components';
 
-interface Rect {
+export interface Rect {
   left: number;
   top: number;
   width: number;
@@ -28,6 +29,7 @@ interface Flight {
   to: Rect;
   size: 'md' | 'lg';
   flip: boolean;
+  kind?: 'fly' | 'burn';
 }
 
 interface Gather {
@@ -36,6 +38,11 @@ interface Gather {
   target: Rect | null;
   felt: Rect | null;
   stage: 'measure' | 'run';
+}
+
+interface Deal {
+  id: number;
+  count: number;
 }
 
 interface Args {
@@ -50,45 +57,114 @@ interface Args {
 
 let seq = 0;
 
+function feltCenter(root: HTMLElement): Rect | null {
+  const felt = root.querySelector<HTMLElement>('.trick-area');
+  if (!felt) return null;
+  const fr = felt.getBoundingClientRect();
+  return {
+    left: fr.left + fr.width / 2 - 23,
+    top: fr.top + fr.height / 2 - 33,
+    width: 46,
+    height: 66,
+  };
+}
+
+function arcOf(dx: number, dy: number): number {
+  return Math.min(64, Math.hypot(dx, dy) * 0.3);
+}
+
+function tiltOf(dx: number, dy: number): number {
+  const d = Math.hypot(dx, dy);
+  if (d < 8) return 0;
+  return Math.max(-9, Math.min(9, (dx / d) * 9));
+}
+
+// پرواز معمولی: مسیر کمانی با کمی انحراف و چرخش
 function animateFly(el: HTMLElement, f: Flight, onDone: () => void): void {
+  if (f.kind === 'burn') {
+    animateBurn(el, f, onDone);
+    return;
+  }
   const dx = f.to.left - f.from.left;
   const dy = f.to.top - f.from.top;
   const s = f.to.width / Math.max(1, f.from.width);
+  const arc = arcOf(dx, dy);
+  const tilt = tiltOf(dx, dy);
+  const mid = 1 + (s - 1) * 0.55;
   const inner = el.querySelector<HTMLElement>('.fly-inner');
   if (f.flip) {
     inner?.animate(
       [
         { transform: 'rotateY(180deg)', offset: 0 },
         { transform: 'rotateY(180deg)', offset: 0.06 },
-        { transform: 'rotateY(360deg)', offset: 0.4 },
+        { transform: 'rotateY(360deg)', offset: 0.42 },
         { transform: 'rotateY(360deg)', offset: 1 },
       ],
-      { duration: 780, easing: 'ease-in-out', fill: 'forwards' },
+      { duration: 820, easing: 'ease-in-out', fill: 'forwards' },
     );
     el.animate(
       [
-        { transform: 'translate(0px, 0px) scale(1)', offset: 0 },
-        { transform: 'translate(0px, 0px) scale(1)', offset: 0.44 },
-        { transform: `translate(${dx}px, ${dy}px) scale(${s})`, offset: 1 },
+        { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 0 },
+        { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 0.34 },
+        {
+          transform: `translate(${dx * 0.55}px, ${dy * 0.55 - arc}px) rotate(${tilt}deg) scale(${mid})`,
+          offset: 0.72,
+        },
+        { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(${s})`, offset: 1 },
       ],
-      { duration: 780, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
-    ).finished.then(onDone).catch(onDone);
+      { duration: 820, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
+    )
+      .finished.then(onDone)
+      .catch(onDone);
     return;
   }
   el.animate(
     [
-      { transform: 'translate(0px, 0px) scale(1)' },
-      { transform: `translate(${dx}px, ${dy}px) scale(${s})` },
+      { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 0 },
+      {
+        transform: `translate(${dx * 0.5}px, ${dy * 0.5 - arc}px) rotate(${tilt}deg) scale(${mid})`,
+        offset: 0.55,
+      },
+      { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(${s})`, offset: 1 },
     ],
-    { duration: 420, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
-  ).finished.then(onDone).catch(onDone);
+    { duration: 460, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
+  )
+    .finished.then(onDone)
+    .catch(onDone);
 }
 
+// سوزاندن دو ورق: پرواز و چرخش به سمت زمین و محو شدن
+function animateBurn(el: HTMLElement, f: Flight, onDone: () => void): void {
+  const dx = f.to.left - f.from.left;
+  const dy = f.to.top - f.from.top;
+  const s = f.to.width / Math.max(1, f.from.width);
+  el.animate(
+    [
+      { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', opacity: 1, offset: 0 },
+      {
+        transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 40}px) rotate(150deg) scale(${(1 + s) / 2})`,
+        opacity: 1,
+        offset: 0.55,
+      },
+      {
+        transform: `translate(${dx}px, ${dy}px) rotate(330deg) scale(${s * 0.9})`,
+        opacity: 0,
+        offset: 1,
+      },
+    ],
+    { duration: 640, easing: 'cubic-bezier(0.3, 0.05, 0.4, 1)', fill: 'forwards' },
+  )
+    .finished.then(onDone)
+    .catch(onDone);
+}
+
+// جمع‌کردن دست: وسط → وارونه شدن → نشستن روی نشان برنده
 function animateGather(
   el: HTMLElement,
   from: Rect,
   target: Rect,
   center: { x: number; y: number },
+  idx: number,
   onDone: () => void,
 ): void {
   const cx1 = center.x - (from.left + from.width / 2);
@@ -96,6 +172,7 @@ function animateGather(
   const s2 = target.width / Math.max(1, from.width);
   const tx2 = target.left - from.left;
   const ty2 = target.top - from.top;
+  const tilt = idx % 2 === 0 ? -(5 + idx * 3) : 5 + idx * 3;
   const inner = el.querySelector<HTMLElement>('.fly-inner');
   inner?.animate(
     [
@@ -108,14 +185,32 @@ function animateGather(
   );
   el.animate(
     [
-      { transform: 'translate(0px, 0px) scale(1)', opacity: 1, offset: 0 },
-      { transform: `translate(${cx1}px, ${cy1}px) scale(1)`, opacity: 1, offset: 0.3 },
-      { transform: `translate(${cx1}px, ${cy1}px) scale(1)`, opacity: 1, offset: 0.48 },
-      { transform: `translate(${tx2}px, ${ty2}px) scale(${s2})`, opacity: 1, offset: 0.85 },
-      { transform: `translate(${tx2}px, ${ty2}px) scale(${s2})`, opacity: 0, offset: 1 },
+      { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', opacity: 1, offset: 0 },
+      {
+        transform: `translate(${cx1}px, ${cy1}px) rotate(${tilt}deg) scale(1)`,
+        opacity: 1,
+        offset: 0.3,
+      },
+      {
+        transform: `translate(${cx1}px, ${cy1}px) rotate(${tilt}deg) scale(1)`,
+        opacity: 1,
+        offset: 0.48,
+      },
+      {
+        transform: `translate(${tx2}px, ${ty2}px) rotate(0deg) scale(${s2})`,
+        opacity: 1,
+        offset: 0.85,
+      },
+      {
+        transform: `translate(${tx2}px, ${ty2}px) rotate(0deg) scale(${s2})`,
+        opacity: 0,
+        offset: 1,
+      },
     ],
     { duration: 1250, easing: 'ease-in-out', fill: 'forwards' },
-  ).finished.then(onDone).catch(onDone);
+  )
+    .finished.then(onDone)
+    .catch(onDone);
 }
 
 function Clone(props: {
@@ -151,9 +246,117 @@ function Clone(props: {
   );
 }
 
+function DealCard(props: { deck: Rect; to: Rect; delay: number }) {
+  return (
+    <div
+      className="fly-clone deal-card"
+      style={{
+        left: props.deck.left,
+        top: props.deck.top,
+        width: props.deck.width,
+        height: props.deck.height,
+      }}
+      ref={(el) => {
+        if (!el || el.dataset.on === '1') return;
+        el.dataset.on = '1';
+        const dx = props.to.left - props.deck.left;
+        const dy = props.to.top - props.deck.top;
+        el.animate(
+          [
+            {
+              transform: 'translate(0px, 0px) rotate(-12deg) scale(0.92)',
+              opacity: 0,
+              offset: 0,
+            },
+            {
+              transform: 'translate(0px, 0px) rotate(-12deg) scale(0.92)',
+              opacity: 1,
+              offset: 0.08,
+            },
+            {
+              transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 46}px) rotate(8deg) scale(0.96)`,
+              opacity: 1,
+              offset: 0.55,
+            },
+            {
+              transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(0.85)`,
+              opacity: 1,
+              offset: 0.84,
+            },
+            {
+              transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(0.85)`,
+              opacity: 0,
+              offset: 1,
+            },
+          ],
+          {
+            duration: 460,
+            delay: props.delay,
+            easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)',
+            fill: 'both',
+          },
+        );
+      }}
+    >
+      <div className="card-face-back" />
+    </div>
+  );
+}
+
+// پخش ورق: از وسط زمین به سمت هر بازیکن (رند-بای-رند، با تاخیر)
+function DealBurst(props: { root: HTMLElement; count: number }) {
+  const spec = useMemo(() => {
+    const felt = props.root.querySelector<HTMLElement>('.trick-area');
+    if (!felt) return null;
+    const fr = felt.getBoundingClientRect();
+    const deck = {
+      left: fr.left + fr.width / 2 - 23,
+      top: fr.top + fr.height / 2 - 33,
+      width: 46,
+      height: 66,
+    };
+    const cx = fr.left + fr.width / 2;
+    const cy = fr.top + fr.height / 2;
+    const targets: Rect[] = [];
+    props.root.querySelectorAll<HTMLElement>('.seat[data-seat]').forEach((p) => {
+      const pr = p.getBoundingClientRect();
+      const pcx = pr.left + pr.width / 2;
+      const pcy = pr.top + pr.height / 2;
+      const vx = cx - pcx;
+      const vy = cy - pcy;
+      const d = Math.hypot(vx, vy) || 1;
+      targets.push({
+        left: pcx + (vx / d) * 34 - 23,
+        top: pcy + (vy / d) * 34 - 33,
+        width: 46,
+        height: 66,
+      });
+    });
+    if (targets.length === 0) return null;
+    return { deck, targets };
+  }, [props.root, props.count]);
+
+  if (!spec) return null;
+  const nodes: ReactNode[] = [];
+  for (let s = 0; s < spec.targets.length; s++) {
+    for (let i = 0; i < props.count; i++) {
+      nodes.push(
+        <DealCard
+          key={`${s}-${i}`}
+          deck={spec.deck}
+          to={spec.targets[s]}
+          delay={(i * spec.targets.length + s) * 48}
+        />,
+      );
+    }
+  }
+  return <>{nodes}</>;
+}
+
 export function useTableMotion(args: Args): {
   notePlay: (card: CardId, from: Rect) => void;
   noteDraw: (card: CardId | null, from: Rect, flip: boolean, hand: CardId[]) => void;
+  noteBurn: (items: { card: CardId; from: Rect }[]) => void;
   hidden: Set<CardId>;
   markerSeat: number | null;
   markerVisible: boolean;
@@ -164,14 +367,17 @@ export function useTableMotion(args: Args): {
   const pendingDraw = useRef<{ card: CardId | null; from: Rect; flip: boolean; hand: CardId[] } | null>(
     null,
   );
+  const pendingBurn = useRef<{ card: CardId; from: Rect }[] | null>(null);
   const lastRects = useRef(new Map<CardId, Rect>());
   const prevTrick = useRef<TrickEntry[]>([]);
   const gatherDone = useRef(0);
+  const prevPhaseRef = useRef(phase);
   const [flights, setFlights] = useState<Flight[]>([]);
   const [hidden, setHidden] = useState<Set<CardId>>(() => new Set());
   const [gather, setGather] = useState<Gather | null>(null);
   const [markerSeat, setMarkerSeat] = useState<number | null>(null);
   const [markerVisible, setMarkerVisible] = useState(false);
+  const [deal, setDeal] = useState<Deal | null>(null);
 
   const startFlight = useCallback((spec: Omit<Flight, 'id'>) => {
     const id = ++seq;
@@ -206,6 +412,30 @@ export function useTableMotion(args: Args): {
     },
     [],
   );
+
+  const noteBurn = useCallback((items: { card: CardId; from: Rect }[]) => {
+    const p = items;
+    pendingBurn.current = p;
+    window.setTimeout(() => {
+      if (pendingBurn.current === p) pendingBurn.current = null;
+    }, 3000);
+  }, []);
+
+  // پخش ورق در شروع دور: ورود به cut/trump از فاز قبلی (نه cut→trump)
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = phase;
+    if (phase !== 'cut' && phase !== 'trump') return;
+    if (prev === 'cut' || prev === 'trump') return;
+    const d = { id: ++seq, count: fullN === 4 ? 13 : 5 };
+    setDeal(d);
+    window.setTimeout(
+      () => {
+        setDeal((x) => (x && x.id === d.id ? null : x));
+      },
+      fullN === 4 ? 3100 : 1500,
+    );
+  }, [phase, fullN]);
 
   // مستطیل کارت‌های بازی‌شده (فقط وقتی دست در جریان است — نه کارت‌های reveal)
   useLayoutEffect(() => {
@@ -268,7 +498,7 @@ export function useTableMotion(args: Args): {
     setMarkerVisible(false);
   }, [phase, markerSeat]);
 
-  // برداشت از زمین (نگه دار / دومی را بردار) → پرواز از جای کارت تا دست
+  // برداشت از زمین (نگه دار / دومی را بردار) → پرواز وارونه از زمین تا دست
   useEffect(() => {
     const p = pendingDraw.current;
     if (!p) return;
@@ -285,6 +515,22 @@ export function useTableMotion(args: Args): {
     const to = el.getBoundingClientRect();
     startFlight({ card, from: p.from, to, size: 'md', flip: p.flip });
   }, [hand, handRef, startFlight]);
+
+  // سوزاندن دو ورق: پرواز از دست تا وسط زمین و محو شدن
+  useEffect(() => {
+    const pb = pendingBurn.current;
+    if (!pb) return;
+    const removed = pb.filter((x) => !hand.includes(x.card));
+    if (removed.length === 0) return;
+    pendingBurn.current = null;
+    const root = rootRef.current;
+    if (!root) return;
+    const to = feltCenter(root);
+    if (!to) return;
+    for (const r of removed) {
+      startFlight({ card: r.card, from: r.from, to, size: 'lg', flip: false, kind: 'burn' });
+    }
+  }, [hand, rootRef, startFlight]);
 
   // اندازه‌گیری جایگاه نشانِ برندۀ دست (وقتی مارکر هنوز مخفی است)
   useLayoutEffect(() => {
@@ -314,6 +560,7 @@ export function useTableMotion(args: Args): {
   }, [gather]);
 
   const renderLayer = useCallback((): ReactNode => {
+    const root = rootRef.current;
     const g = gather;
     let gatherNodes: ReactNode = null;
     if (g && g.stage === 'run' && g.target && g.felt) {
@@ -322,13 +569,13 @@ export function useTableMotion(args: Args): {
         x: g.felt.left + g.felt.width / 2,
         y: g.felt.top + g.felt.height / 2,
       };
-      gatherNodes = g.cards.map((c) => (
+      gatherNodes = g.cards.map((c, idx) => (
         <Clone
           key={`g-${c.card}`}
           card={c.card}
           from={c.from}
           size="md"
-          animate={(el) => animateGather(el, c.from, target, center, doneOne)}
+          animate={(el) => animateGather(el, c.from, target, center, idx, doneOne)}
         />
       ));
     }
@@ -344,9 +591,10 @@ export function useTableMotion(args: Args): {
           />
         ))}
         {gatherNodes}
+        {deal && root ? <DealBurst key={`deal-${deal.id}`} root={root} count={deal.count} /> : null}
       </div>
     );
-  }, [flights, gather, finishFlight, doneOne]);
+  }, [flights, gather, deal, finishFlight, doneOne, rootRef]);
 
-  return { notePlay, noteDraw, hidden, markerSeat, markerVisible, renderLayer };
+  return { notePlay, noteDraw, noteBurn, hidden, markerSeat, markerVisible, renderLayer };
 }

@@ -348,6 +348,26 @@ button:active {
   border-radius: 8px;
 }
 
+/* پرش ملایم وقتی امتیاز/شمارش دست/حکم عوض می‌شود (با تعویض key دوباره اجرا می‌شود) */
+.sc,
+.trick-count,
+.trump-badge {
+  animation: count-bump 0.45s ease-out;
+  display: inline-block;
+}
+
+@keyframes count-bump {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .trump-badge.t-H,
 .trump-badge.t-D {
   color: #ff9c9c;
@@ -485,10 +505,24 @@ button:active {
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  perspective: 700px;
 }
 
 .played-slot .card {
   animation: played-in 0.3s ease-out backwards;
+}
+
+/* کارت‌های تعیین حاکم: وارونه‌شونده یکی‌یکی */
+.played-slot.reveal .card,
+.trick-card.reveal .card {
+  animation: flip-reveal 0.5s ease-out backwards;
+}
+
+@keyframes flip-reveal {
+  from {
+    opacity: 0;
+    transform: rotateY(-90deg);
+  }
 }
 
 .played-slot.is-ace {
@@ -529,6 +563,22 @@ button:active {
 
 .trick-marker.m-hidden {
   opacity: 0;
+}
+
+.trick-marker.show {
+  animation: marker-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+@keyframes marker-pop {
+  0% {
+    transform: scale(0.3);
+  }
+  55% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* پشت ورق (برای پرواز وارونه و جمع‌کردن دست) */
@@ -770,6 +820,15 @@ button:active {
   }
 }
 
+.hand .card.playable:hover {
+  transform: translateY(-9px);
+  box-shadow: 0 0 14px rgba(232, 193, 90, 0.75);
+}
+
+.hand .card.playable:active {
+  transform: translateY(-3px) scale(0.98);
+}
+
 .hand.my-turn .card.playable {
   box-shadow: 0 0 12px rgba(232, 193, 90, 0.7);
 }
@@ -873,6 +932,24 @@ input[type='range'] {
   justify-content: center;
   z-index: 50;
   padding: 20px;
+  animation: overlay-in 0.22s ease-out;
+}
+
+.overlay .panel {
+  animation: panel-in 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.92);
+  }
 }
 
 .panel {

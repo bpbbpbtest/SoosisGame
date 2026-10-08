@@ -9,7 +9,7 @@ import {
 } from 'shared';
 import { CardView, SeatPanel, SuitButton } from './components';
 import { useAceReveal } from './useAceReveal';
-import { useTableMotion } from './useTableMotion';
+import { useTableMotion, type Rect } from './useTableMotion';
 
 interface Props {
   state: PlayerView2;
@@ -42,6 +42,7 @@ export function GameTable2({ state, act }: Props) {
   const seatName = (s: number | null) =>
     s !== null && state.players[s] ? state.players[s]!.name : '—';
   const reveal = useAceReveal(state.aceLog, state.hakem, 2);
+  const dealing = state.phase === 'trump';
   const motion = useTableMotion({
     rootRef,
     handRef,
@@ -176,22 +177,36 @@ export function GameTable2({ state, act }: Props) {
     <div className="table" ref={rootRef}>
       <header className="hud">
         <div className="score">
-          <span className="sc mine">{yourScore}</span>
+          <span key={`m-${yourScore}`} className="sc mine">
+            {yourScore}
+          </span>
           <span className="sep">—</span>
-          <span className="sc opp">{oppScore}</span>
-          <span className="trick-count">
+          <span key={`o-${oppScore}`} className="sc opp">
+            {oppScore}
+          </span>
+          <span
+            key={`t-${you !== null ? state.tricks[you] : state.tricks[0]}-${
+              you !== null ? state.tricks[1 - you] : state.tricks[1]
+            }`}
+            className="trick-count"
+          >
             دست‌ها: {you !== null ? state.tricks[you] : state.tricks[0]} —{' '}
             {you !== null ? state.tricks[1 - you] : state.tricks[1]}
           </span>
         </div>
         <div className="hud-meta">
-          {state.trump ? (
-            <span className={`trump-badge t-${state.trump}`}>
-              حکم: {SUIT_SYMBOL[state.trump]} {SUIT_FA[state.trump]}
-            </span>
-          ) : (
-            <span className="trump-badge">حکم: —</span>
-          )}
+          <span
+            key={state.trump ?? 'no-trump'}
+            className={`trump-badge${state.trump ? ` t-${state.trump}` : ''}`}
+          >
+            {state.trump ? (
+              <>
+                حکم: {SUIT_SYMBOL[state.trump]} {SUIT_FA[state.trump]}
+              </>
+            ) : (
+              <>حکم: —</>
+            )}
+          </span>
           <span>حاکم: {reveal.running ? '…تعیین' : seatName(state.hakem)}</span>
           <span>دور تا {state.matchTarget}</span>
         </div>
@@ -211,6 +226,7 @@ export function GameTable2({ state, act }: Props) {
                   card: theirField.card,
                   ace: theirField.ace,
                   hidden: motion.hidden.has(theirField.card),
+                  reveal: reveal.active,
                 }
               : null
           }
@@ -224,7 +240,7 @@ export function GameTable2({ state, act }: Props) {
           <div
             key={card}
             data-fcc={card}
-            className={`trick-card pos-0${ace ? ' is-ace' : ''}`}
+            className={`trick-card pos-0${ace ? ' is-ace' : ''}${reveal.active ? ' reveal' : ''}`}
             style={motion.hidden.has(card) ? { visibility: 'hidden' } : undefined}
           >
             <CardView card={card} size="md" />
@@ -233,7 +249,7 @@ export function GameTable2({ state, act }: Props) {
         {showMarker && motion.markerSeat === anchor ? (
           <div className="trick-card pos-0">
             <div
-              className={`trick-marker${motion.markerVisible ? '' : ' m-hidden'}`}
+              className={`trick-marker${motion.markerVisible ? ' show' : ' m-hidden'}`}
               data-fmk=""
             />
           </div>
@@ -283,7 +299,7 @@ export function GameTable2({ state, act }: Props) {
         ) : (
           state.hand.map((card, i) => {
             const style: CSSProperties = {
-              animationDelay: `${Math.min(i * 45, 260)}ms`,
+              animationDelay: `${Math.min(i * (dealing ? 55 : 45), dealing ? 680 : 260)}ms`,
             };
             if (motion.hidden.has(card)) style.visibility = 'hidden';
             if (inBurn) {
@@ -393,7 +409,17 @@ export function GameTable2({ state, act }: Props) {
                   type="button"
                   className="primary"
                   disabled={burnSel.length !== 2}
-                  onClick={() => act({ k: 'burn', cards: burnSel })}
+                  onClick={() => {
+                    const items: { card: CardId; from: Rect }[] = [];
+                    for (const card of burnSel) {
+                      const el = handRef.current?.querySelector<HTMLElement>(
+                        `[aria-label="${card}"]`,
+                      );
+                      if (el) items.push({ card, from: el.getBoundingClientRect() });
+                    }
+                    motion.noteBurn(items);
+                    act({ k: 'burn', cards: burnSel });
+                  }}
                 >
                   بسوزان
                 </button>
