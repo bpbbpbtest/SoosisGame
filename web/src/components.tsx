@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import {
   RANK_DISPLAY,
   SUIT_FA,
@@ -16,7 +16,7 @@ export function CardView(props: {
   size?: 'sm' | 'md' | 'lg';
   dim?: boolean;
   playable?: boolean;
-  onClick?: () => void;
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   label?: string;
   style?: CSSProperties;
 }) {
@@ -46,10 +46,14 @@ export function SeatPanel(props: {
   isTurn: boolean;
   you?: boolean;
   hideRoles?: boolean;
+  played?: { card: CardId; ace?: boolean; hidden?: boolean } | null;
+  marker?: boolean;
+  markerVisible?: boolean;
 }) {
   const p = props.player;
+  const played = props.played;
   return (
-    <div className={`seat ${props.position} ${props.isTurn ? 'turn' : ''}`}>
+    <div className={`seat ${props.position} ${props.isTurn ? 'turn' : ''}`} data-seat={p?.seat}>
       <div className="avatar">{p ? p.name.trim().charAt(0) : '?'}</div>
       <div className="seat-meta">
         <span className="seat-name">
@@ -63,6 +67,23 @@ export function SeatPanel(props: {
       </div>
       <div className="seat-cards">{p ? `${p.cardCount} ورق` : ''}</div>
       {props.isTurn ? <span className="turn-dot" aria-hidden /> : null}
+      {played ? (
+        <div
+          className={`played-slot${played.ace ? ' is-ace' : ''}`}
+          data-fcc={played.card}
+          style={played.hidden ? { visibility: 'hidden' } : undefined}
+        >
+          <CardView card={played.card} size="md" />
+        </div>
+      ) : null}
+      {props.marker ? (
+        <div className="played-slot">
+          <div
+            className={`trick-marker${props.markerVisible ? '' : ' m-hidden'}`}
+            data-fmk=""
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

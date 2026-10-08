@@ -450,7 +450,7 @@ button:active {
   justify-content: center;
 }
 
-/* کارت بازی‌شده / کارت تعیین حاکم — روی زمین، جلوی خود بازیکن */
+/* کارت بازی‌شدهٔ خودت — روی زمین، جلوی خودت */
 .trick-card {
   position: absolute;
   z-index: 1;
@@ -466,24 +466,6 @@ button:active {
   transform: translateX(-50%);
 }
 
-.trick-card.pos-1 {
-  right: 12%;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.trick-card.pos-2 {
-  top: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.trick-card.pos-3 {
-  left: 12%;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
 .trick-card.is-ace {
   filter: drop-shadow(0 0 8px rgba(232, 193, 90, 0.95));
   z-index: 2;
@@ -494,6 +476,116 @@ button:active {
     opacity: 0;
     transform: translateY(-22px) scale(0.6);
   }
+}
+
+/* کارت بازی‌شدهٔ حریف — درست جلوی پنل اسمش */
+.played-slot {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.played-slot .card {
+  animation: played-in 0.3s ease-out backwards;
+}
+
+.played-slot.is-ace {
+  filter: drop-shadow(0 0 8px rgba(232, 193, 90, 0.95));
+}
+
+.seat.top .played-slot {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.seat.left .played-slot {
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.seat.right .played-slot {
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* نشان کوچک روبه‌روی برندۀ دست — ورق‌های جمع‌شده پشت آن می‌نشینند */
+.trick-marker {
+  width: 34px;
+  height: 50px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.16) 0 4px, transparent 4px 9px),
+    linear-gradient(145deg, #24479c, #142c63);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.trick-marker.m-hidden {
+  opacity: 0;
+}
+
+/* پشت ورق (برای پرواز وارونه و جمع‌کردن دست) */
+.card-face-back {
+  width: 100%;
+  height: 100%;
+  border-radius: 7px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.16) 0 4px, transparent 4px 9px),
+    linear-gradient(145deg, #24479c, #142c63);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* لایهٔ پرواز کارت‌ها — روی همه‌چیز، بدون کلیک */
+.fly-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  pointer-events: none;
+}
+
+.fly-clone {
+  position: fixed;
+  left: 0;
+  top: 0;
+  perspective: 900px;
+  will-change: transform;
+}
+
+.fly-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.ff {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.ff.back {
+  transform: rotateY(180deg);
+}
+
+/* ردیف برداشت از زمین: ورق آشکار + ورق پنهان */
+.ace-cards.draw-row {
+  gap: 14px;
+  flex-wrap: nowrap;
+}
+
+.draw-back {
+  width: var(--card-w);
+  height: var(--card-h);
 }
 
 .hakem-reveal {
@@ -781,55 +873,6 @@ input[type='range'] {
   justify-content: center;
   z-index: 50;
   padding: 20px;
-}
-
-/* لحظهٔ برداشتن ورق دوم از زمین */
-.take-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(4, 18, 12, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 70;
-  opacity: 1;
-  transition: opacity 0.25s ease;
-  animation: fade-in 0.18s ease-out;
-}
-
-.take-overlay.leaving {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.take-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.take-box span {
-  color: #fff;
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.take-box .card {
-  animation: take-pop 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
-}
-
-@keyframes take-pop {
-  from {
-    opacity: 0;
-    transform: translateY(30px) scale(0.5) rotate(-6deg);
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
 }
 
 .panel {

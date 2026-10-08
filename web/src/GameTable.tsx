@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   SUIT_FA,
   SUIT_SYMBOL,
@@ -11,6 +11,7 @@ import {
 } from 'shared';
 import { CardView, SeatPanel, SuitButton } from './components';
 import { useAceReveal } from './useAceReveal';
+import { useTableMotion } from './useTableMotion';
 
 interface Props {
   state: PlayerView;
@@ -39,14 +40,29 @@ export function GameTable({ state, act }: Props) {
   const seatName = (s: number | null) =>
     s !== null && state.players[s] ? state.players[s]!.name : '—';
   const reveal = useAceReveal(state.aceLog, state.hakem, 4);
-  const fieldPosOf = (seat: number): string => {
-    const d = (((seat - anchor) % 4) + 4) % 4;
-    return (['pos-0', 'pos-1', 'pos-2', 'pos-3'] as const)[d];
-  };
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const motion = useTableMotion({
+    rootRef,
+    phase: state.phase,
+    trick: state.trick,
+    leader: state.leader,
+    hand: state.hand,
+    fullN: 4,
+  });
+  const showMarker =
+    motion.markerSeat !== null &&
+    state.trick.length === 0 &&
+    (state.phase === 'play' || state.phase === 'bam' || state.phase === 'roundEnd');
   const fieldCards: { seat: number; card: CardId; ace: boolean }[] =
     state.phase === 'play'
       ? state.trick.map((tc) => ({ seat: tc.seat, card: tc.card, ace: false }))
-      : reveal.cards;
+      : showMarker
+        ? []
+        : reveal.cards;
+  const selfField = fieldCards.filter((c) => c.seat === anchor);
+  const theirField = new Map(
+    fieldCards.filter((c) => c.seat !== anchor).map((c) => [c.seat, c] as const),
+  );
 
   const remaining =
     state.deadline !== null ? Math.max(0, Math.ceil((state.deadline - now) / 1000)) : null;
@@ -159,7 +175,7 @@ export function GameTable({ state, act }: Props) {
   const others = [1, 2, 3].map((d) => ({ seat: (anchor + d) % 4, pos: positionOf(d) }));
 
   return (
-    <div className="table">
+    <div className="table" ref={rootRef}>
       <header className="hud">
         <div className="score">
           <span className={`sc mine ${yourTeam !== null ? '' : ''}`}>{yourScore}</span>
@@ -186,26 +202,46 @@ export function GameTable({ state, act }: Props) {
       {you === null ? <div className="banner spectate">تماشاچی — بازی را می‌بینید</div> : null}
 
       <div className="seats">
-        {others.map(({ seat, pos }) => (
-          <SeatPanel
-            key={seat}
-            player={state.players[seat]}
-            position={pos}
-            isTurn={state.turn === seat}
-            hideRoles={reveal.running}
-          />
-        ))}
+        {others.map(({ seat, pos }) => {
+          const fc = theirField.get(seat);
+          return (
+            <SeatPanel
+              key={seat}
+              player={state.players[seat]}
+              position={pos}
+              isTurn={state.turn === seat}
+              hideRoles={reveal.running}
+              played={
+                fc
+                  ? { card: fc.card, ace: fc.ace, hidden: motion.hidden.has(fc.card) }
+                  : null
+              }
+              marker={showMarker && motion.markerSeat === seat}
+              markerVisible={motion.markerVisible}
+            />
+          );
+        })}
       </div>
 
       <div className="trick-area">
-        {fieldCards.map(({ seat, card, ace }) => (
+        {selfField.map(({ card, ace }) => (
           <div
-            key={`${seat}-${card}`}
-            className={`trick-card ${fieldPosOf(seat)}${ace ? ' is-ace' : ''}`}
+            key={card}
+            data-fcc={card}
+            className={`trick-card pos-0${ace ? ' is-ace' : ''}`}
+            style={motion.hidden.has(card) ? { visibility: 'hidden' } : undefined}
           >
             <CardView card={card} size="md" />
           </div>
         ))}
+        {showMarker && motion.markerSeat === anchor ? (
+          <div className="trick-card pos-0">
+            <div
+              className={`trick-marker${motion.markerVisible ? '' : ' m-hidden'}`}
+              data-fmk=""
+            />
+          </div>
+        ) : null}
         {reveal.active ? (
           <div className={`hakem-reveal${reveal.done ? ' done' : ''}`}>
             {reveal.done
@@ -242,7 +278,12 @@ export function GameTable({ state, act }: Props) {
                 dim={dim}
                 playable={state.can.play && isLegal}
                 onClick={
-                  state.can.play && isLegal ? () => act({ k: 'play', card }) : undefined
+                  state.can.play && isLegal
+                    ? (e) => {
+                        motion.notePlay(card, e.currentTarget.getBoundingClientRect());
+                        act({ k: 'play', card });
+                      }
+                    : undefined
                 }
               />
             );
@@ -261,6 +302,8 @@ export function GameTable({ state, act }: Props) {
             ))}
         </ul>
       </details>
+
+      {motion.renderLayer()}
     </div>
   );
 

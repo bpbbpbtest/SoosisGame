@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   SUIT_FA,
   SUIT_SYMBOL,
@@ -9,6 +9,7 @@ import {
 } from 'shared';
 import { CardView, SeatPanel, SuitButton } from './components';
 import { useAceReveal } from './useAceReveal';
+import { useTableMotion } from './useTableMotion';
 
 interface Props {
   state: PlayerView2;
@@ -19,9 +20,10 @@ export function GameTable2({ state, act }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [burnSel, setBurnSel] = useState<CardId[]>([]);
   const [copied, setCopied] = useState(false);
-  const handBeforeRef = useRef<CardId[] | null>(null);
-  const takeTimersRef = useRef<number[]>([]);
-  const [take, setTake] = useState<{ card: CardId; leaving: boolean } | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const handRef = useRef<HTMLDivElement | null>(null);
+  const drawCard1Ref = useRef<HTMLDivElement | null>(null);
+  const drawBackRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (state.deadline === null) return;
@@ -34,40 +36,33 @@ export function GameTable2({ state, act }: Props) {
     setBurnSel([]);
   }, [state.phase, state.turn]);
 
-  useEffect(() => {
-    return () => {
-      takeTimersRef.current.forEach((t) => window.clearTimeout(t));
-      takeTimersRef.current = [];
-    };
-  }, []);
-
-  useEffect(() => {
-    const prev = handBeforeRef.current;
-    handBeforeRef.current = null;
-    if (!prev) return;
-    const added = state.hand.find((c) => !prev.includes(c));
-    if (added === undefined) return;
-    takeTimersRef.current.forEach((t) => window.clearTimeout(t));
-    takeTimersRef.current = [];
-    setTake({ card: added, leaving: false });
-    takeTimersRef.current.push(
-      window.setTimeout(() => setTake((x) => (x ? { ...x, leaving: true } : x)), 950),
-      window.setTimeout(() => setTake(null), 1230),
-    );
-  }, [state.hand]);
-
   const you = state.you;
   const anchor = you ?? 0;
   const opp = 1 - anchor;
   const seatName = (s: number | null) =>
     s !== null && state.players[s] ? state.players[s]!.name : '—';
   const reveal = useAceReveal(state.aceLog, state.hakem, 2);
-  const fieldPosOf = (seat: number): 'pos-0' | 'pos-2' =>
-    ((seat - anchor) % 2 + 2) % 2 === 0 ? 'pos-0' : 'pos-2';
+  const motion = useTableMotion({
+    rootRef,
+    handRef,
+    phase: state.phase,
+    trick: state.trick,
+    leader: state.leader,
+    hand: state.hand,
+    fullN: 2,
+  });
+  const showMarker =
+    motion.markerSeat !== null &&
+    state.trick.length === 0 &&
+    (state.phase === 'play' || state.phase === 'roundEnd');
   const fieldCards: { seat: number; card: CardId; ace: boolean }[] =
     state.phase === 'play'
       ? state.trick.map((tc) => ({ seat: tc.seat, card: tc.card, ace: false }))
-      : reveal.cards;
+      : showMarker
+        ? []
+        : reveal.cards;
+  const selfField = fieldCards.filter((c) => c.seat === anchor);
+  const theirField = fieldCards.find((c) => c.seat !== anchor) ?? null;
 
   const remaining =
     state.deadline !== null ? Math.max(0, Math.ceil((state.deadline - now) / 1000)) : null;
@@ -178,7 +173,7 @@ export function GameTable2({ state, act }: Props) {
   const inBurn = state.phase === 'burn' && state.can.burn;
 
   return (
-    <div className="table">
+    <div className="table" ref={rootRef}>
       <header className="hud">
         <div className="score">
           <span className="sc mine">{yourScore}</span>
@@ -210,18 +205,39 @@ export function GameTable2({ state, act }: Props) {
           position="top"
           isTurn={state.turn === opp}
           hideRoles={reveal.running}
+          played={
+            theirField
+              ? {
+                  card: theirField.card,
+                  ace: theirField.ace,
+                  hidden: motion.hidden.has(theirField.card),
+                }
+              : null
+          }
+          marker={showMarker && motion.markerSeat === opp}
+          markerVisible={motion.markerVisible}
         />
       </div>
 
       <div className="trick-area">
-        {fieldCards.map(({ seat, card, ace }) => (
+        {selfField.map(({ card, ace }) => (
           <div
-            key={`${seat}-${card}`}
-            className={`trick-card ${fieldPosOf(seat)}${ace ? ' is-ace' : ''}`}
+            key={card}
+            data-fcc={card}
+            className={`trick-card pos-0${ace ? ' is-ace' : ''}`}
+            style={motion.hidden.has(card) ? { visibility: 'hidden' } : undefined}
           >
             <CardView card={card} size="md" />
           </div>
         ))}
+        {showMarker && motion.markerSeat === anchor ? (
+          <div className="trick-card pos-0">
+            <div
+              className={`trick-marker${motion.markerVisible ? '' : ' m-hidden'}`}
+              data-fmk=""
+            />
+          </div>
+        ) : null}
         {reveal.active ? (
           <div className={`hakem-reveal${reveal.done ? ' done' : ''}`}>
             {reveal.done
@@ -235,8 +251,13 @@ export function GameTable2({ state, act }: Props) {
               زمین: {state.draw.pileLeft} ورق — برداشت زوجی (ورق دوم پنهان است)
             </span>
             {state.draw.card1 ? (
-              <div className="ace-cards">
-                <CardView card={state.draw.card1} size="md" />
+              <div className="ace-cards draw-row">
+                <div ref={drawCard1Ref}>
+                  <CardView card={state.draw.card1} size="md" />
+                </div>
+                <div ref={drawBackRef} className="draw-back">
+                  <div className="card-face-back" />
+                </div>
               </div>
             ) : (
               <span className="waiting">{`${seatName(state.draw.turn)} در حال برداشت…`}</span>
@@ -256,27 +277,21 @@ export function GameTable2({ state, act }: Props) {
 
       <div className="actionbar">{renderActions()}</div>
 
-      {take ? (
-        <div className={`take-overlay ${take.leaving ? 'leaving' : ''}`}>
-          <div className="take-box">
-            <span>برداشتی — به دست اضافه شد</span>
-            <CardView card={take.card} size="lg" />
-          </div>
-        </div>
-      ) : null}
-
-      <div className={`hand ${state.can.play || inBurn ? 'my-turn' : ''}`}>
+      <div className={`hand ${state.can.play || inBurn ? 'my-turn' : ''}`} ref={handRef}>
         {state.hand.length === 0 ? (
           <span className="hand-empty">—</span>
         ) : (
-          (take ? state.hand.filter((c) => c !== take.card) : state.hand).map((card, i) => {
-            const delay = { animationDelay: `${Math.min(i * 45, 260)}ms` };
+          state.hand.map((card, i) => {
+            const style: CSSProperties = {
+              animationDelay: `${Math.min(i * 45, 260)}ms`,
+            };
+            if (motion.hidden.has(card)) style.visibility = 'hidden';
             if (inBurn) {
               const selected = burnSel.includes(card);
               return (
                 <CardView
                   key={card}
-                  style={delay}
+                  style={style}
                   card={card}
                   size="lg"
                   playable={selected}
@@ -289,13 +304,18 @@ export function GameTable2({ state, act }: Props) {
             return (
               <CardView
                 key={card}
-                style={delay}
+                style={style}
                 card={card}
                 size="lg"
                 dim={dim}
                 playable={state.can.play && isLegal}
                 onClick={
-                  state.can.play && isLegal ? () => act({ k: 'play', card }) : undefined
+                  state.can.play && isLegal
+                    ? (e) => {
+                        motion.notePlay(card, e.currentTarget.getBoundingClientRect());
+                        act({ k: 'play', card });
+                      }
+                    : undefined
                 }
               />
             );
@@ -314,6 +334,8 @@ export function GameTable2({ state, act }: Props) {
             ))}
         </ul>
       </details>
+
+      {motion.renderLayer()}
     </div>
   );
 
@@ -400,18 +422,35 @@ export function GameTable2({ state, act }: Props) {
                 ورق اول را نگه می‌دارید یا می‌سوزانید؟ (ورق دوم برعکس می‌شود)
               </span>
               <div className="btn-row">
-                <button type="button" className="primary" onClick={() => act({ k: 'drawPick', keep: true })}>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => {
+                    const c1 = state.draw?.card1;
+                    if (!c1 || !drawCard1Ref.current) return;
+                    motion.noteDraw(
+                      c1,
+                      drawCard1Ref.current.getBoundingClientRect(),
+                      false,
+                      state.hand,
+                    );
+                    act({ k: 'drawPick', keep: true });
+                  }}
+                >
                   نگه دار — دومی بسوزد
                 </button>
                 <button
                   type="button"
                   className="ghost"
                   onClick={() => {
-                    handBeforeRef.current = state.hand;
+                    if (!drawBackRef.current) return;
+                    motion.noteDraw(
+                      null,
+                      drawBackRef.current.getBoundingClientRect(),
+                      true,
+                      state.hand,
+                    );
                     act({ k: 'drawPick', keep: false });
-                    window.setTimeout(() => {
-                      handBeforeRef.current = null;
-                    }, 3000);
                   }}
                 >
                   بسوزان — دومی را بردار
