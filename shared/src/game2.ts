@@ -272,7 +272,7 @@ export class Hokm2Game {
   private applyTrump(suit: Suit): void {
     const r = this.round!;
     r.trump = suit;
-    this.pushLog(`حکم: ${suitLabel(suit)} — توسط ${this.players[this.hakem]!.name}`);
+    this.pushLog(`حکم: ${suitLabel(suit)} — توسط ${this.players[this.hakem!]!.name}`);
     this.phase = 'burn';
     this.burnSeat = this.hakem!;
     this.setDeadline(TURN_MS);

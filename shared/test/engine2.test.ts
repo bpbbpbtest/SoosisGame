@@ -135,8 +135,7 @@ describe('hokm2', () => {
     const g = mkGame(3, 5);
     joinTwo(g);
     g.start('a');
-    let rounds = 0;
-    while (g.phase !== 'matchEnd' && rounds < 30) {
+    for (let rounds = 0; rounds < 30; rounds++) {
       const hakemBefore = g.hakem!;
       driveUntil(g, ['roundEnd', 'matchEnd']);
       const lr = g.lastRound;
@@ -150,7 +149,6 @@ describe('hokm2', () => {
       g.nextRound('a');
       const expectedHakem = winner === hakemBefore ? hakemBefore : 1 - hakemBefore;
       expect(g.hakem).toBe(expectedHakem);
-      rounds++;
     }
     expect(g.phase).toBe('matchEnd');
     expect(g.matchWinner).not.toBeNull();
@@ -197,7 +195,7 @@ describe('hokm2', () => {
     joinTwo(g);
     g.start('a');
     expect(() => g.cut('a', 10)).toThrow(GameError);
-    expect(() => g.voteRedeal('a')).toThrow(GameError);
+    expect(() => g.voteRedeal()).toThrow(GameError);
     expect(() => g.chooseBam('a', true)).toThrow(GameError);
   });
 
