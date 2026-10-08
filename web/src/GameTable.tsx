@@ -6,6 +6,7 @@ import {
   suitOf,
   teamOf,
   type Action,
+  type CardId,
   type PlayerView,
 } from 'shared';
 import { CardView, SeatPanel, SuitButton } from './components';
@@ -36,6 +37,8 @@ export function GameTable({ state, act }: Props) {
   const yourTeam = you !== null ? teamOf(you) : null;
   const seatName = (s: number | null) =>
     s !== null && state.players[s] ? state.players[s]!.name : '—';
+  const playedFor = (s: number): CardId | null =>
+    state.trick.find((tc) => tc.seat === s)?.card ?? null;
 
   const remaining =
     state.deadline !== null ? Math.max(0, Math.ceil((state.deadline - now) / 1000)) : null;
@@ -181,6 +184,7 @@ export function GameTable({ state, act }: Props) {
             player={state.players[seat]}
             position={pos}
             isTurn={state.turn === seat}
+            played={playedFor(seat)}
           />
         ))}
         <div className={`seat bottom-me ${state.turn === anchor ? 'turn' : ''}`}>
@@ -193,6 +197,11 @@ export function GameTable({ state, act }: Props) {
               </span>
               <span className="seat-cards">{state.players[anchor]!.cardCount} ورق</span>
             </>
+          ) : null}
+          {playedFor(anchor) ? (
+            <div className="played-card">
+              <CardView card={playedFor(anchor)!} size="md" />
+            </div>
           ) : null}
           {state.turn === anchor ? <span className="turn-dot" aria-hidden /> : null}
         </div>
@@ -207,15 +216,6 @@ export function GameTable({ state, act }: Props) {
                 <CardView key={`${c}-${i}`} card={c} size="sm" />
               ))}
             </div>
-          </div>
-        ) : null}
-        {state.trick.length > 0 ? (
-          <div className="trick-row">
-            {state.trick.map((tc) => (
-              <div key={`${tc.seat}-${tc.card}`} className="trick-card">
-                <CardView card={tc.card} size="md" label={seatName(tc.seat)} />
-              </div>
-            ))}
           </div>
         ) : null}
         {state.trick.length === 0 && state.phase === 'play' ? (

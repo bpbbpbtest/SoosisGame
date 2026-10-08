@@ -42,6 +42,7 @@ export function SeatPanel(props: {
   position: 'top' | 'left' | 'right';
   isTurn: boolean;
   you?: boolean;
+  played?: CardId | null;
 }) {
   const p = props.player;
   return (
@@ -58,6 +59,11 @@ export function SeatPanel(props: {
         </span>
       </div>
       <div className="seat-cards">{p ? `${p.cardCount} ورق` : ''}</div>
+      {props.played ? (
+        <div className="played-card">
+          <CardView card={props.played} size="md" />
+        </div>
+      ) : null}
       {props.isTurn ? <span className="turn-dot" aria-hidden /> : null}
     </div>
   );

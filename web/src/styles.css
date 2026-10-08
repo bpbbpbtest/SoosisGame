@@ -456,15 +456,9 @@ button:active {
   justify-content: center;
 }
 
-.trick-row {
+.played-card {
   display: flex;
-  gap: 10px;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.trick-card {
-  position: relative;
+  align-items: center;
 }
 
 .table-hint {
@@ -603,9 +597,10 @@ button:active {
 /* ---------- hand ---------- */
 .hand {
   display: flex;
+  direction: ltr;
   justify-content: flex-start;
   align-items: flex-end;
-  gap: 3px;
+  gap: 0;
   padding: 14px 4px 6px;
   min-height: calc(var(--card-h) + 30px);
   overflow-x: auto;
@@ -613,7 +608,7 @@ button:active {
   scrollbar-width: thin;
 }
 
-/* وسط‌چین وقتی جا هست، اسکرول کامل وقتی کارت‌ها جا نمی‌شوند */
+/* وسط‌چین وقتی جا هست؛ از چپ به راست و چسبیده وقتی جا نمی‌شوند */
 .hand > :first-child {
   margin-left: auto;
 }
