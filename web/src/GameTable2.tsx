@@ -142,7 +142,6 @@ export function GameTable2({ state, act }: Props) {
   }
 
   // ---------- میز ----------
-  const posOf = (seat: number): 'pos-0' | 'pos-2' => (seat === anchor ? 'pos-0' : 'pos-2');
   const inBurn = state.phase === 'burn' && state.can.burn;
 
   return (
@@ -152,6 +151,10 @@ export function GameTable2({ state, act }: Props) {
           <span className="sc mine">{yourScore}</span>
           <span className="sep">—</span>
           <span className="sc opp">{oppScore}</span>
+          <span className="trick-count">
+            دست‌ها: {you !== null ? state.tricks[you] : state.tricks[0]} —{' '}
+            {you !== null ? state.tricks[1 - you] : state.tricks[1]}
+          </span>
         </div>
         <div className="hud-meta">
           {state.trump ? (
@@ -199,11 +202,15 @@ export function GameTable2({ state, act }: Props) {
             </div>
           </div>
         ) : null}
-        {state.trick.map((tc) => (
-          <div key={`${tc.seat}-${tc.card}`} className={`trick-card ${posOf(tc.seat)}`}>
-            <CardView card={tc.card} size="md" label={seatName(tc.seat)} />
+        {state.trick.length > 0 ? (
+          <div className="trick-row">
+            {state.trick.map((tc) => (
+              <div key={`${tc.seat}-${tc.card}`} className="trick-card">
+                <CardView card={tc.card} size="md" label={seatName(tc.seat)} />
+              </div>
+            ))}
           </div>
-        ))}
+        ) : null}
         {state.phase === 'draw' && state.draw ? (
           <div className="ace-log">
             <span className="ace-caption">

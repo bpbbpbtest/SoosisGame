@@ -326,6 +326,14 @@ button:active {
   color: #9fd6ff;
 }
 
+.score .trick-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-inline-start: 10px;
+  white-space: nowrap;
+}
+
 .hud-meta {
   display: flex;
   gap: 10px;
@@ -448,32 +456,15 @@ button:active {
   justify-content: center;
 }
 
+.trick-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
 .trick-card {
-  position: absolute;
-}
-
-.trick-card.pos-0 {
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.trick-card.pos-1 {
-  right: 12%;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.trick-card.pos-2 {
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
-.trick-card.pos-3 {
-  left: 12%;
-  top: 50%;
-  transform: translateY(-50%);
+  position: relative;
 }
 
 .table-hint {

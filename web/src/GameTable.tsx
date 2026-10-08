@@ -34,7 +34,6 @@ export function GameTable({ state, act }: Props) {
   const you = state.you;
   const anchor = you ?? 0;
   const yourTeam = you !== null ? teamOf(you) : null;
-  const delta = (seat: number) => (seat - anchor + 4) % 4;
   const seatName = (s: number | null) =>
     s !== null && state.players[s] ? state.players[s]!.name : '—';
 
@@ -155,6 +154,10 @@ export function GameTable({ state, act }: Props) {
           <span className={`sc mine ${yourTeam !== null ? '' : ''}`}>{yourScore}</span>
           <span className="sep">—</span>
           <span className="sc opp">{oppScore}</span>
+          <span className="trick-count">
+            دست‌ها: {yourTeam !== null ? state.tricks[yourTeam] : state.tricks[0]} —{' '}
+            {yourTeam !== null ? state.tricks[1 - yourTeam] : state.tricks[1]}
+          </span>
         </div>
         <div className="hud-meta">
           {state.trump ? (
@@ -206,11 +209,15 @@ export function GameTable({ state, act }: Props) {
             </div>
           </div>
         ) : null}
-        {state.trick.map((tc) => (
-          <div key={`${tc.seat}-${tc.card}`} className={`trick-card pos-${delta(tc.seat)}`}>
-            <CardView card={tc.card} size="md" label={seatName(tc.seat)} />
+        {state.trick.length > 0 ? (
+          <div className="trick-row">
+            {state.trick.map((tc) => (
+              <div key={`${tc.seat}-${tc.card}`} className="trick-card">
+                <CardView card={tc.card} size="md" label={seatName(tc.seat)} />
+              </div>
+            ))}
           </div>
-        ))}
+        ) : null}
         {state.trick.length === 0 && state.phase === 'play' ? (
           <div className="table-hint">
             {state.turn !== null ? `نوبت: ${seatName(state.turn)}` : ''}
