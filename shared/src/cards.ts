@@ -98,13 +98,13 @@ export function shuffle<T>(arr: readonly T[], rnd: () => number = Math.random): 
   return a;
 }
 
-/** مرتب‌سازی دست برای نمایش: ابتدا خال‌ها با ترتیب حکمی-شده، سپس ارزش کم به زیاد */
+/** مرتب‌سازی دست برای نمایش: ابتدا خال‌ها با اولویت حکم، سپس ارزش زیاد به کم (آس تا ۲) */
 export function sortHand(cards: readonly CardId[], trump?: Suit | null): CardId[] {
   const suitOrder = (s: Suit): number => (s === trump ? -1 : SUITS.indexOf(s));
   return cards.slice().sort((x, y) => {
     const sx = suitOrder(suitOf(x));
     const sy = suitOrder(suitOf(y));
     if (sx !== sy) return sx - sy;
-    return cardValue(x) - cardValue(y);
+    return cardValue(y) - cardValue(x);
   });
 }

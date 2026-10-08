@@ -196,7 +196,7 @@ export function GameTable({ state, act }: Props) {
       </div>
 
       <div className="trick-area">
-        {state.aceLog.length > 0 && state.trick.length === 0 ? (
+        {state.aceLog.length > 0 && (state.phase === 'cut' || state.phase === 'trump') ? (
           <div className="ace-log">
             <span className="ace-caption">تعیین حاکم (اولین آس):</span>
             <div className="ace-cards">

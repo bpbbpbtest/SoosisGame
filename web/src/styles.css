@@ -365,7 +365,7 @@ button:active {
 }
 
 .seat.top {
-  top: 6px;
+  top: 44px;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -453,7 +453,7 @@ button:active {
 }
 
 .trick-card.pos-0 {
-  bottom: 0;
+  bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
 }
@@ -496,8 +496,9 @@ button:active {
 .ace-log {
   position: absolute;
   top: 0;
-  right: 0;
-  width: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(240px, 92%);
   text-align: center;
   z-index: 2;
 }
@@ -611,12 +612,23 @@ button:active {
 /* ---------- hand ---------- */
 .hand {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: flex-end;
   gap: 3px;
   padding: 14px 4px 6px;
   min-height: calc(var(--card-h) + 30px);
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+/* وسط‌چین وقتی جا هست، اسکرول کامل وقتی کارت‌ها جا نمی‌شوند */
+.hand > :first-child {
+  margin-left: auto;
+}
+
+.hand > :last-child {
+  margin-right: auto;
 }
 
 .hand.my-turn .card.playable {
