@@ -32,11 +32,38 @@ export class GameClient {
   private disposed = false;
   private failCount = 0;
   private lastError: string | null = null;
+  private stateQ: AnyView[] = [];
+  private flushScheduled = false;
 
   constructor(
     private readonly cfg: WebConfig,
     private readonly handlers: ClientHandlers
   ) {}
+
+  private queueState(s: AnyView): void {
+    this.stateQ.push(s);
+    this.scheduleFlush();
+  }
+
+  private scheduleFlush(): void {
+    if (this.flushScheduled || this.disposed) return;
+    this.flushScheduled = true;
+    const run = () => {
+      this.flushScheduled = false;
+      if (this.disposed) {
+        this.stateQ = [];
+        return;
+      }
+      const next = this.stateQ.shift();
+      if (next !== undefined) this.handlers.onState(next);
+      if (this.stateQ.length > 0) this.scheduleFlush();
+    };
+    if (typeof document !== 'undefined' && document.hidden) {
+      window.setTimeout(run, 16);
+    } else {
+      window.requestAnimationFrame(run);
+    }
+  }
 
   connect(gameCode: string, initData: string): void {
     if (this.disposed) return;
@@ -63,7 +90,7 @@ export class GameClient {
         return;
       }
       if (msg.t === 'ready') this.handlers.onReady(msg.user);
-      else if (msg.t === 'state') this.handlers.onState(msg.state);
+      else if (msg.t === 'state') this.queueState(msg.state);
       else if (msg.t === 'error') {
         this.lastError = msg.message;
         this.handlers.onError(msg.message);
@@ -106,6 +133,7 @@ export class GameClient {
 
   dispose(): void {
     this.disposed = true;
+    this.stateQ = [];
     try {
       this.ws?.close();
     } catch {

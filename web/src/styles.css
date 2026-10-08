@@ -547,38 +547,48 @@ button:active {
   transform: translateY(-50%);
 }
 
-/* نشان کوچک روبه‌روی برندۀ دست — ورق‌های جمع‌شده پشت آن می‌نشینند */
-.trick-marker {
-  width: 34px;
-  height: 50px;
-  border-radius: 6px;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  background:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.16) 0 4px, transparent 4px 9px),
-    linear-gradient(145deg, #24479c, #142c63);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
-  opacity: 1;
-  transition: opacity 0.3s ease;
+/* پشتهٔ ورق‌های برداشته‌شده — رو‌به‌پایین، جلوی هر بازیکن */
+.trick-stack {
+  position: absolute;
+  width: 32px;
+  height: 44px;
+  pointer-events: none;
 }
 
-.trick-marker.m-hidden {
-  opacity: 0;
+.trick-stack .st-card {
+  position: absolute;
+  inset: 0;
+  animation: stack-in 0.28s ease-out backwards;
 }
 
-.trick-marker.show {
-  animation: marker-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+.trick-stack .card-face-back {
+  border-radius: 5px;
 }
 
-@keyframes marker-pop {
-  0% {
-    transform: scale(0.3);
+@keyframes stack-in {
+  from {
+    opacity: 0;
   }
-  55% {
-    transform: scale(1.12);
-  }
-  100% {
-    transform: scale(1);
-  }
+}
+
+.seat.top .trick-stack {
+  top: calc(100% + 6px);
+  left: calc(50% - 66px);
+}
+
+.seat.left .trick-stack {
+  left: calc(100% + 8px);
+  top: calc(50% + 52px);
+}
+
+.seat.right .trick-stack {
+  right: calc(100% + 8px);
+  top: calc(50% + 52px);
+}
+
+.trick-area .trick-stack.self {
+  bottom: 8px;
+  left: 14px;
 }
 
 /* پشت ورق (برای پرواز وارونه و جمع‌کردن دست) */

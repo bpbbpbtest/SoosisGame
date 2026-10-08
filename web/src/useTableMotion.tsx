@@ -60,10 +60,14 @@ let seq = 0;
 function feltCenter(root: HTMLElement): Rect | null {
   const felt = root.querySelector<HTMLElement>('.trick-area');
   if (!felt) return null;
-  const fr = felt.getBoundingClientRect();
+  return centerRect(felt.getBoundingClientRect());
+}
+
+// مستطیل ورق (۴۶×۶۶) در مرکز یک عنصر
+function centerRect(r: { left: number; top: number; width: number; height: number }): Rect {
   return {
-    left: fr.left + fr.width / 2 - 23,
-    top: fr.top + fr.height / 2 - 33,
+    left: r.left + r.width / 2 - 23,
+    top: r.top + r.height / 2 - 33,
     width: 46,
     height: 66,
   };
@@ -360,6 +364,7 @@ export function useTableMotion(args: Args): {
   hidden: Set<CardId>;
   markerSeat: number | null;
   markerVisible: boolean;
+  lingering: TrickEntry[] | null;
   renderLayer: () => ReactNode;
 } {
   const { rootRef, handRef, phase, trick, leader, hand, fullN } = args;
@@ -368,6 +373,9 @@ export function useTableMotion(args: Args): {
     null,
   );
   const pendingBurn = useRef<{ card: CardId; from: Rect }[] | null>(null);
+  const pendingGather = useRef<{ cards: { card: CardId; from: Rect }[]; winner: number } | null>(
+    null,
+  );
   const lastRects = useRef(new Map<CardId, Rect>());
   const prevTrick = useRef<TrickEntry[]>([]);
   const gatherDone = useRef(0);
@@ -378,6 +386,7 @@ export function useTableMotion(args: Args): {
   const [markerSeat, setMarkerSeat] = useState<number | null>(null);
   const [markerVisible, setMarkerVisible] = useState(false);
   const [deal, setDeal] = useState<Deal | null>(null);
+  const [lingering, setLingering] = useState<TrickEntry[] | null>(null);
 
   const startFlight = useCallback((spec: Omit<Flight, 'id'>) => {
     const id = ++seq;
@@ -449,25 +458,50 @@ export function useTableMotion(args: Args): {
     if (map.size > 0) lastRects.current = map;
   });
 
-  // کارت تازه بازی‌شده: فقط برای ورق‌های خودت از دست پرواز می‌کند؛
-  // کارت حریف سرِ جایش (جلوی پنل اسمش) با انیمیشن pop ظاهر می‌شود
+  // کارت‌های دستِ تمام‌شده تا شروع پروازِ جمع‌کردن روی زمین می‌مانند
+  useLayoutEffect(() => {
+    if (trick.length === 0 && prevTrick.current.length === fullN) {
+      setLingering((l) => (l === null ? prevTrick.current.slice() : l));
+    } else if (trick.length > 0) {
+      setLingering((l) => (l !== null ? null : l));
+    }
+  }, [trick, fullN]);
+
+  const startPendingGather = useCallback(() => {
+    const pg = pendingGather.current;
+    if (!pg) return;
+    pendingGather.current = null;
+    gatherDone.current = 0;
+    setMarkerSeat(pg.winner);
+    setMarkerVisible(false);
+    setLingering(null);
+    setGather({ cards: pg.cards, winner: pg.winner, target: null, felt: null, stage: 'measure' });
+  }, []);
+
+  // کارت تازه بازی‌شده: ورق خودت از دست پرواز می‌کند؛ کارت حریف از پنل اسمش به جایگاهش
   useEffect(() => {
     const prev = prevTrick.current;
     const cur = trick;
     if (cur.length > prev.length && rootRef.current) {
       for (const tc of cur) {
         if (prev.some((p) => p.seat === tc.seat && p.card === tc.card)) continue;
-        const pp = pendingPlay.current;
-        if (!pp || pp.card !== tc.card) continue;
-        pendingPlay.current = null;
         const toEl = rootRef.current.querySelector<HTMLElement>(`[data-fcc="${tc.card}"]`);
         if (!toEl) continue;
+        const to = toEl.getBoundingClientRect();
+        const pp = pendingPlay.current;
+        if (pp && pp.card === tc.card) {
+          pendingPlay.current = null;
+          startFlight({ card: tc.card, from: pp.from, to, size: 'lg', flip: false });
+          continue;
+        }
+        const panel = rootRef.current.querySelector<HTMLElement>(`[data-seat="${tc.seat}"]`);
+        if (!panel) continue;
         startFlight({
           card: tc.card,
-          from: pp.from,
-          to: toEl.getBoundingClientRect(),
-          size: 'lg',
-          flip: false,
+          from: centerRect(panel.getBoundingClientRect()),
+          to,
+          size: 'md',
+          flip: true,
         });
       }
     }
@@ -479,24 +513,33 @@ export function useTableMotion(args: Args): {
     ) {
       const cards = [...lastRects.current.entries()].map(([card, from]) => ({ card, from }));
       lastRects.current = new Map();
-      gatherDone.current = 0;
-      setMarkerSeat(leader);
-      setMarkerVisible(false);
-      setGather({ cards, winner: leader, target: null, felt: null, stage: 'measure' });
+      pendingGather.current = { cards, winner: leader };
+      if (flights.length === 0) startPendingGather();
+    } else if (prev.length === fullN && cur.length === 0) {
+      setLingering(null);
     } else if (cur.length > 0 && markerSeat !== null) {
       setMarkerSeat(null);
       setMarkerVisible(false);
     }
     prevTrick.current = cur;
-  }, [trick, leader, fullN, markerSeat, rootRef, startFlight]);
+  }, [trick, leader, fullN, markerSeat, rootRef, startFlight, flights, startPendingGather]);
+
+  // جمع‌کردن دست فقط وقتی پروازهای در جریان تمام شده‌اند شروع می‌شود
+  useEffect(() => {
+    if (flights.length > 0) return;
+    if (pendingGather.current === null) return;
+    startPendingGather();
+  }, [flights, startPendingGather]);
 
   // فازهای بین‌دور (کوپ/حکم/سوزاندن/برداشت) نشانِ دور قبل را پاک می‌کنند
   useEffect(() => {
     if (phase === 'play' || phase === 'bam' || phase === 'roundEnd') return;
-    if (markerSeat === null) return;
-    setMarkerSeat(null);
-    setMarkerVisible(false);
-  }, [phase, markerSeat]);
+    if (markerSeat !== null) {
+      setMarkerSeat(null);
+      setMarkerVisible(false);
+    }
+    if (lingering !== null) setLingering(null);
+  }, [phase, markerSeat, lingering]);
 
   // برداشت از زمین (نگه دار / دومی را بردار) → پرواز وارونه از زمین تا دست
   useEffect(() => {
@@ -536,7 +579,7 @@ export function useTableMotion(args: Args): {
   useLayoutEffect(() => {
     if (!gather || gather.stage !== 'measure') return;
     const root = rootRef.current;
-    const mk = root?.querySelector<HTMLElement>('[data-fmk]');
+    const mk = root?.querySelector<HTMLElement>(`[data-fmk="w${gather.winner}"]`);
     const felt = root?.querySelector<HTMLElement>('.trick-area');
     if (!root || !mk || !felt) {
       setGather(null);
@@ -596,5 +639,5 @@ export function useTableMotion(args: Args): {
     );
   }, [flights, gather, deal, finishFlight, doneOne, rootRef]);
 
-  return { notePlay, noteDraw, noteBurn, hidden, markerSeat, markerVisible, renderLayer };
+  return { notePlay, noteDraw, noteBurn, hidden, markerSeat, markerVisible, lingering, renderLayer };
 }

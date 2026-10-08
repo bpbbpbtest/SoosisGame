@@ -9,7 +9,7 @@ import {
   type CardId,
   type PlayerView,
 } from 'shared';
-import { CardView, SeatPanel, SuitButton } from './components';
+import { CardView, SeatPanel, SuitButton, TrickStack } from './components';
 import { useAceReveal } from './useAceReveal';
 import { useTableMotion } from './useTableMotion';
 
@@ -54,9 +54,10 @@ export function GameTable({ state, act }: Props) {
     motion.markerSeat !== null &&
     state.trick.length === 0 &&
     (state.phase === 'play' || state.phase === 'bam' || state.phase === 'roundEnd');
+  const fromTrick = state.trick.length > 0 ? state.trick : (motion.lingering ?? []);
   const fieldCards: { seat: number; card: CardId; ace: boolean }[] =
-    state.phase === 'play'
-      ? state.trick.map((tc) => ({ seat: tc.seat, card: tc.card, ace: false }))
+    fromTrick.length > 0
+      ? fromTrick.map((tc) => ({ seat: tc.seat, card: tc.card, ace: false }))
       : showMarker
         ? []
         : reveal.cards;
@@ -64,6 +65,7 @@ export function GameTable({ state, act }: Props) {
   const theirField = new Map(
     fieldCards.filter((c) => c.seat !== anchor).map((c) => [c.seat, c] as const),
   );
+  const stackFor = (seat: number) => state.tricks[teamOf(seat)];
 
   const remaining =
     state.deadline !== null ? Math.max(0, Math.ceil((state.deadline - now) / 1000)) : null;
@@ -236,8 +238,7 @@ export function GameTable({ state, act }: Props) {
                     }
                   : null
               }
-              marker={showMarker && motion.markerSeat === seat}
-              markerVisible={motion.markerVisible}
+              stack={stackFor(seat)}
             />
           );
         })}
@@ -254,14 +255,7 @@ export function GameTable({ state, act }: Props) {
             <CardView card={card} size="md" />
           </div>
         ))}
-        {showMarker && motion.markerSeat === anchor ? (
-          <div className="trick-card pos-0">
-            <div
-              className={`trick-marker${motion.markerVisible ? ' show' : ' m-hidden'}`}
-              data-fmk=""
-            />
-          </div>
-        ) : null}
+        <TrickStack seat={anchor} count={stackFor(anchor)} self />
         {reveal.active ? (
           <div className={`hakem-reveal${reveal.done ? ' done' : ''}`}>
             {reveal.done

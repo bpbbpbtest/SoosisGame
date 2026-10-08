@@ -40,6 +40,31 @@ export function CardView(props: {
   );
 }
 
+export function TrickStack(props: { seat: number; count: number; self?: boolean }) {
+  const n = Math.min(Math.max(props.count, 0), 13);
+  if (n === 0) return null;
+  return (
+    <div
+      className={`trick-stack${props.self ? ' self' : ''}`}
+      data-fmk={`w${props.seat}`}
+      aria-hidden
+    >
+      {Array.from({ length: n }, (_, i) => (
+        <div
+          key={i}
+          className="st-card"
+          style={{
+            zIndex: i + 1,
+            transform: `translateY(${-i * 1.5}px) rotate(${((i % 5) - 2) * 4}deg)`,
+          }}
+        >
+          <div className="card-face-back" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SeatPanel(props: {
   player: PublicPlayer | null;
   position: 'top' | 'left' | 'right';
@@ -47,8 +72,7 @@ export function SeatPanel(props: {
   you?: boolean;
   hideRoles?: boolean;
   played?: { card: CardId; ace?: boolean; hidden?: boolean; reveal?: boolean } | null;
-  marker?: boolean;
-  markerVisible?: boolean;
+  stack?: number;
 }) {
   const p = props.player;
   const played = props.played;
@@ -76,14 +100,7 @@ export function SeatPanel(props: {
           <CardView card={played.card} size="md" />
         </div>
       ) : null}
-      {props.marker ? (
-        <div className="played-slot">
-          <div
-            className={`trick-marker${props.markerVisible ? ' show' : ' m-hidden'}`}
-            data-fmk=""
-          />
-        </div>
-      ) : null}
+      {p ? <TrickStack seat={p.seat} count={props.stack ?? 0} /> : null}
     </div>
   );
 }

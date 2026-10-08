@@ -7,7 +7,7 @@ import {
   type CardId,
   type PlayerView2,
 } from 'shared';
-import { CardView, SeatPanel, SuitButton } from './components';
+import { CardView, SeatPanel, SuitButton, TrickStack } from './components';
 import { useAceReveal } from './useAceReveal';
 import { useTableMotion, type Rect } from './useTableMotion';
 
@@ -56,14 +56,16 @@ export function GameTable2({ state, act }: Props) {
     motion.markerSeat !== null &&
     state.trick.length === 0 &&
     (state.phase === 'play' || state.phase === 'roundEnd');
+  const fromTrick = state.trick.length > 0 ? state.trick : (motion.lingering ?? []);
   const fieldCards: { seat: number; card: CardId; ace: boolean }[] =
-    state.phase === 'play'
-      ? state.trick.map((tc) => ({ seat: tc.seat, card: tc.card, ace: false }))
+    fromTrick.length > 0
+      ? fromTrick.map((tc) => ({ seat: tc.seat, card: tc.card, ace: false }))
       : showMarker
         ? []
         : reveal.cards;
   const selfField = fieldCards.filter((c) => c.seat === anchor);
   const theirField = fieldCards.find((c) => c.seat !== anchor) ?? null;
+  const stackFor = (seat: number) => state.tricks[seat];
 
   const remaining =
     state.deadline !== null ? Math.max(0, Math.ceil((state.deadline - now) / 1000)) : null;
@@ -230,8 +232,7 @@ export function GameTable2({ state, act }: Props) {
                 }
               : null
           }
-          marker={showMarker && motion.markerSeat === opp}
-          markerVisible={motion.markerVisible}
+          stack={stackFor(opp)}
         />
       </div>
 
@@ -246,14 +247,7 @@ export function GameTable2({ state, act }: Props) {
             <CardView card={card} size="md" />
           </div>
         ))}
-        {showMarker && motion.markerSeat === anchor ? (
-          <div className="trick-card pos-0">
-            <div
-              className={`trick-marker${motion.markerVisible ? ' show' : ' m-hidden'}`}
-              data-fmk=""
-            />
-          </div>
-        ) : null}
+        <TrickStack seat={anchor} count={stackFor(anchor)} self />
         {reveal.active ? (
           <div className={`hakem-reveal${reveal.done ? ' done' : ''}`}>
             {reveal.done
