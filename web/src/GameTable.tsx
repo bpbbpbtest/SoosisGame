@@ -62,7 +62,10 @@ export function GameTable({ state, act }: Props) {
       : showMarker
         ? []
         : reveal.cards;
-  const selfField = fieldCards.filter((c) => c.seat === anchor);
+  // فقط آخرین کارت خودی (در حین تعیین حاکم چند آس به یک نشست می‌رسد)
+  const mine = fieldCards.filter((c) => c.seat === anchor);
+  const selfField = mine.length > 0 ? [mine[mine.length - 1]] : [];
+  // Map: برای هر نشست آخرین کارت برندهٔ نگاشت است (ورودی‌ها به ترتیب زمانی)
   const theirField = new Map(
     fieldCards.filter((c) => c.seat !== anchor).map((c) => [c.seat, c] as const),
   );
@@ -117,12 +120,12 @@ export function GameTable({ state, act }: Props) {
           >
             {copied ? 'کپی شد ✓' : 'کپی لینک دعوت'}
           </button>
-          {state.can.start ? (
+          {you !== null ? (
             <button
               type="button"
               className="primary"
               onClick={() => act({ k: 'start' })}
-              disabled={joined < 4}
+              disabled={!state.can.start}
             >
               شروع بازی ({joined}/4)
             </button>

@@ -64,9 +64,12 @@ export function GameTable2({ state, act }: Props) {
       : showMarker
         ? []
         : reveal.cards;
-  const selfField = fieldCards.filter((c) => c.seat === anchor);
-  // کارت بازی‌شدهٔ حریف همیشه جلوی پنل خودش می‌نشیند (نه وسط زمین)
-  const theirPanel = fieldCards.find((c) => c.seat !== anchor) ?? null;
+  // فقط آخرین کارت هر سمت نمایش داده شود — در حین تعیین حاکم چند کارت به یک
+  // نشست می‌رسد و گرفتن «اولین» باعث نمایش کارت قدیمی می‌شد
+  const mine = fieldCards.filter((c) => c.seat === anchor);
+  const selfField = mine.length > 0 ? [mine[mine.length - 1]] : [];
+  const theirs = fieldCards.filter((c) => c.seat !== anchor);
+  const theirPanel = theirs.length > 0 ? theirs[theirs.length - 1] : null;
   const stackFor = (seat: number) => state.tricks[seat];
 
   const remaining =
@@ -113,12 +116,12 @@ export function GameTable2({ state, act }: Props) {
           >
             {copied ? 'کپی شد ✓' : 'کپی لینک دعوت'}
           </button>
-          {state.can.start ? (
+          {you !== null ? (
             <button
               type="button"
               className="primary"
               onClick={() => act({ k: 'start' })}
-              disabled={joined < 2}
+              disabled={!state.can.start}
             >
               شروع بازی ({joined}/2)
             </button>

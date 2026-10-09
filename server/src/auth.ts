@@ -30,6 +30,14 @@ export function verifyInitData(
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
     if (!hash) return null;
+    // اعتبار initData محدود است (پیشنهاد تلگرام) — کلید دائمی نباشد
+    const authDate = Number(params.get('auth_date'));
+    if (
+      !Number.isFinite(authDate) ||
+      Math.abs(Date.now() / 1000 - authDate) > 24 * 60 * 60
+    ) {
+      return null;
+    }
     params.delete('hash');
     const pairs = [...params.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
     const dataCheckString = pairs.map(([k, v]) => `${k}=${v}`).join('\n');

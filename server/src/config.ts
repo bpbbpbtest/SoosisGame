@@ -11,6 +11,11 @@ function bool(v: string | undefined): boolean {
   return v === '1' || v === 'true' || v === 'yes';
 }
 
+function int(v: string | undefined, fallback: number, min: number, max: number): number {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= min && n <= max ? Math.floor(n) : fallback;
+}
+
 export function loadConfig(): Config {
   const botToken = process.env.BOT_TOKEN?.trim() || null;
   const webappUrl =
@@ -18,9 +23,10 @@ export function loadConfig(): Config {
   return {
     botToken,
     webappUrl: webappUrl.endsWith('/') ? webappUrl : webappUrl + '/',
-    port: Number(process.env.PORT || 8787),
+    port: int(process.env.PORT, 8787, 1, 65535),
     ownerId: process.env.TG_OWNER_ID?.trim() || null,
     allowDev: bool(process.env.ALLOW_DEV),
-    matchTarget: Number(process.env.MATCH_TARGET || 7),
+    // عدد نامعتبر نباید بازی را برای همیشه بدون پایان کند (points >= NaN هرگز درست نمی‌شود)
+    matchTarget: int(process.env.MATCH_TARGET, 7, 1, 100),
   };
 }

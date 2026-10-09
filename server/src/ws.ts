@@ -11,7 +11,8 @@ interface Conn {
   ws: WebSocket;
   user: AuthedUser;
   game: ManagedGame;
-  seat: number | null;
+  // بازیکنی که خودش از لابی خارج شده دوباره به‌خودکار جوین نشود
+  left: boolean;
 }
 
 export interface ServerHooks {
@@ -25,24 +26,28 @@ export interface RunningServer {
 
 export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHooks): RunningServer {
   const connsByGame = new Map<string, Set<Conn>>();
-  const wss = new WebSocketServer({ noServer: true });
+  // پیام‌های کلاینت باید کوچک باشند — جلوی payload سنگین از ابتدا گرفته می‌شود
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 
   function send(conn: Conn, msg: ServerMsg): void {
     if (conn.ws.readyState === WebSocket.OPEN) conn.ws.send(JSON.stringify(msg));
   }
 
   function sendState(conn: Conn): void {
-    send(conn, { t: 'state', state: conn.game.view(conn.seat) });
+    // صندلی هر پیام دوباره محاسبه می‌شود — بعد از leave/restart نباید
+    // کانکشن قدیمی همچنان صندلی قبلی را ببیند (ویرایش دست بازیکن دیگر!)
+    const seat = conn.game.seatOf(conn.user.id);
+    send(conn, { t: 'state', state: conn.game.view(seat) });
   }
 
   function broadcast(game: ManagedGame): void {
-    const set = connsByGame.get(game.id);
-    if (!set || set.size === 0) return;
-    for (const conn of set) sendState(conn);
     if (game.phase === 'matchEnd' && !game.notifiedEnd) {
       game.notifiedEnd = true;
       hooks.onMatchEnd(game);
     }
+    const set = connsByGame.get(game.id);
+    if (!set || set.size === 0) return;
+    for (const conn of set) sendState(conn);
   }
 
   function addConn(conn: Conn): void {
@@ -53,11 +58,28 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
     }
     set.add(conn);
     // وسطِ دست (قبل از حل) هم به همه فرستاده شود تا کارتِ حریف دیده شود
-    conn.game.onFlush = () => broadcast(conn.game);
+    const game = conn.game;
+    game.onFlush = () => broadcast(game);
   }
 
   function removeConn(conn: Conn): void {
-    connsByGame.get(conn.game.id)?.delete(conn);
+    const set = connsByGame.get(conn.game.id);
+    if (!set) return;
+    set.delete(conn);
+    if (set.size === 0) connsByGame.delete(conn.game.id);
+  }
+
+  // بازگشت به صندلی در لابی هنگام sync (اتصالِ تازه یا جا باز شده) — نه بعد از خروجِ خودخواسته
+  function refreshLobbySeat(conn: Conn): void {
+    if (conn.left) return;
+    if (conn.game.phase !== 'lobby') return;
+    if (conn.game.seatOf(conn.user.id) !== null) return;
+    try {
+      conn.game.join(conn.user);
+      broadcast(conn.game);
+    } catch {
+      /* لابی پر است — تماشاچی می‌ماند */
+    }
   }
 
   function handleAction(conn: Conn, action: Action): void {
@@ -84,12 +106,14 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
           g.play(id, action.card);
           break;
         case 'bam':
+          if (typeof action.cont !== 'boolean') throw new GameError('درخواست نامعتبر');
           g.chooseBam(id, action.cont);
           break;
         case 'burn':
           g.burnCards(id, action.cards);
           break;
         case 'drawPick':
+          if (typeof action.keep !== 'boolean') throw new GameError('درخواست نامعتبر');
           g.drawPick(id, action.keep);
           break;
         case 'next':
@@ -103,12 +127,18 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
           break;
         case 'leave':
           g.leave(id);
+          conn.left = true;
           break;
       }
       broadcast(g);
     } catch (e) {
-      const message = e instanceof GameError ? e.message : 'خطای ناشناخته';
-      send(conn, { t: 'error', message });
+      if (e instanceof GameError) {
+        send(conn, { t: 'error', message: e.message });
+      } else {
+        // خطای غیرمنتظره را لاگ کن تا در تولید قابل ردیابی باشد
+        console.error('[ws] unexpected action error', e);
+        send(conn, { t: 'error', message: 'خطای ناشناخته' });
+      }
       sendState(conn);
     }
   }
@@ -148,20 +178,31 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
       return;
     }
     const { user, game } = parsed;
-    const conn: Conn = { ws, user, game, seat: seatFor(game, user) };
+    // صندلی بگیر یا (در لابی) جوین شو — بعد از هر پیام sendState دوباره محاسبه می‌شود
+    seatFor(game, user);
+    const conn: Conn = { ws, user, game, left: false };
     addConn(conn);
     send(conn, { t: 'ready', user: { id: user.id, name: user.name } });
     broadcast(game); // وضعیت جدید (مثلاً جوین شدن) به همه برسد
 
     ws.on('message', (raw) => {
-      let msg: ClientMsg;
+      // هر پیام خام باید بی‌خطر باشد — JSON.parse می‌تواند null/عدد/رشته برگرداند
+      // و دسترسی به property روی آن کل سرور را می‌اندازد
+      let parsed: unknown;
       try {
-        msg = JSON.parse(String(raw)) as ClientMsg;
+        parsed = JSON.parse(String(raw));
       } catch {
         return;
       }
-      if (msg.t === 'act') handleAction(conn, msg.action);
-      else if (msg.t === 'sync') sendState(conn);
+      if (!parsed || typeof parsed !== 'object') return;
+      const msg = parsed as Partial<ClientMsg>;
+      if (msg.t === 'act') {
+        if (!msg.action || typeof msg.action !== 'object') return;
+        handleAction(conn, msg.action as Action);
+      } else if (msg.t === 'sync') {
+        refreshLobbySeat(conn);
+        sendState(conn);
+      }
     });
 
     ws.on('close', () => removeConn(conn));
@@ -210,16 +251,19 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
   });
 
   // ---- timer: زمان‌بند خودکار + GC ----
-  let tick = 0;
+  let lastGc = 0;
   const timer = setInterval(() => {
     const now = Date.now();
+    if (now - lastGc >= 60_000) {
+      lastGc = now;
+      store.gc(now, (id) => (connsByGame.get(id)?.size ?? 0) > 0);
+    }
     for (const game of store.all()) {
       try {
         if (game.autoAdvance(now)) broadcast(game);
       } catch {
         /* خطای زمان‌بند نباید سرور را بیندازد */
       }
-      if (++tick % 60 === 0) store.gc(now);
     }
   }, 1000);
 

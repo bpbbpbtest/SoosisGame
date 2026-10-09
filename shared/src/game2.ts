@@ -643,7 +643,7 @@ export class Hokm2Game {
       draw,
       can: {
         leave: this.phase === 'lobby' && seat !== null,
-        start: this.phase === 'lobby' && seat !== null,
+        start: this.phase === 'lobby' && seat !== null && this.playerCount() === 2,
         trump: this.phase === 'trump' && isHakem,
         redeal:
           this.phase === 'trump' &&

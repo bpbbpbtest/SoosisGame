@@ -2,6 +2,10 @@ import { Hokm2Game, HokmGame, type GameMode, type ManagedGame } from 'shared';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const LOBBY_IDLE_MS = 24 * 60 * 60 * 1000;
+// بازیِ شروع‌شدهٔ بدون بازیکن (همه قطع کرده‌اند) نباید تا ابد در حافظه بماند
+const ABANDONED_IDLE_MS = 24 * 60 * 60 * 1000;
+// بازی تمام‌شده بدون بیننده خیلی زودتر جمع می‌شود
+const FINISHED_IDLE_MS = 60 * 60 * 1000;
 
 export class GameStore {
   private games = new Map<string, ManagedGame>();
@@ -38,9 +42,14 @@ export class GameStore {
     this.games.delete(id);
   }
 
-  gc(now: number): void {
+  gc(now: number, hasConns: (id: string) => boolean): void {
     for (const g of this.games.values()) {
-      if (g.phase === 'lobby' && now - g.getActivity() > LOBBY_IDLE_MS) {
+      // بازیِ دارای اتصال زنده هرگز حذف نمی‌شود (حتی لابیِ بی‌حرکت)
+      if (hasConns(g.id)) continue;
+      const idle = now - g.getActivity();
+      if (g.phase === 'matchEnd' && idle > FINISHED_IDLE_MS) {
+        this.games.delete(g.id);
+      } else if (g.phase !== 'matchEnd' && idle > (g.phase === 'lobby' ? LOBBY_IDLE_MS : ABANDONED_IDLE_MS)) {
         this.games.delete(g.id);
       }
     }

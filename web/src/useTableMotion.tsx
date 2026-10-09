@@ -128,81 +128,90 @@ function animateSlotIn(el: HTMLElement, from: Rect, flip: boolean): void {
 
 // پرواز معمولی: مسیر کمانی با کمی انحراف و چرخش
 function animateFly(el: HTMLElement, f: Flight, onDone: () => void): void {
-  if (f.kind === 'burn') {
-    animateBurn(el, f, onDone);
-    return;
-  }
-  const dx = f.to.left - f.from.left;
-  const dy = f.to.top - f.from.top;
-  const s = f.to.width / Math.max(1, f.from.width);
-  const arc = arcOf(dx, dy);
-  const tilt = tiltOf(dx, dy);
-  const mid = 1 + (s - 1) * 0.55;
-  const inner = el.querySelector<HTMLElement>('.fly-inner');
-  if (f.flip) {
-    inner?.animate(
-      [
-        { transform: 'rotateY(180deg)', offset: 0 },
-        { transform: 'rotateY(180deg)', offset: 0.06 },
-        { transform: 'rotateY(360deg)', offset: 0.42 },
-        { transform: 'rotateY(360deg)', offset: 1 },
-      ],
-      { duration: 820, easing: 'ease-in-out', fill: 'forwards' },
-    );
+  try {
+    if (f.kind === 'burn') {
+      animateBurn(el, f, onDone);
+      return;
+    }
+    const dx = f.to.left - f.from.left;
+    const dy = f.to.top - f.from.top;
+    const s = f.to.width / Math.max(1, f.from.width);
+    const arc = arcOf(dx, dy);
+    const tilt = tiltOf(dx, dy);
+    const mid = 1 + (s - 1) * 0.55;
+    const inner = el.querySelector<HTMLElement>('.fly-inner');
+    if (f.flip) {
+      inner?.animate(
+        [
+          { transform: 'rotateY(180deg)', offset: 0 },
+          { transform: 'rotateY(180deg)', offset: 0.06 },
+          { transform: 'rotateY(360deg)', offset: 0.42 },
+          { transform: 'rotateY(360deg)', offset: 1 },
+        ],
+        { duration: 820, easing: 'ease-in-out', fill: 'forwards' },
+      );
+      el.animate(
+        [
+          { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 0 },
+          { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 0.34 },
+          {
+            transform: `translate(${dx * 0.55}px, ${dy * 0.55 - arc}px) rotate(${tilt}deg) scale(${mid})`,
+            offset: 0.72,
+          },
+          { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(${s})`, offset: 1 },
+        ],
+        { duration: 820, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
+      )
+        .finished.then(onDone)
+        .catch(onDone);
+      return;
+    }
     el.animate(
       [
         { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 0 },
-        { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 0.34 },
         {
-          transform: `translate(${dx * 0.55}px, ${dy * 0.55 - arc}px) rotate(${tilt}deg) scale(${mid})`,
-          offset: 0.72,
+          transform: `translate(${dx * 0.5}px, ${dy * 0.5 - arc}px) rotate(${tilt}deg) scale(${mid})`,
+          offset: 0.55,
         },
         { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(${s})`, offset: 1 },
       ],
-      { duration: 820, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
+      { duration: 460, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
     )
       .finished.then(onDone)
       .catch(onDone);
-    return;
+  } catch {
+    // WAAPI در دسترس نیست — پرواز تمام‌شده حساب شود تا کارت پنهان آزاد شود
+    onDone();
   }
-  el.animate(
-    [
-      { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 0 },
-      {
-        transform: `translate(${dx * 0.5}px, ${dy * 0.5 - arc}px) rotate(${tilt}deg) scale(${mid})`,
-        offset: 0.55,
-      },
-      { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(${s})`, offset: 1 },
-    ],
-    { duration: 460, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
-  )
-    .finished.then(onDone)
-    .catch(onDone);
 }
 
 // سوزاندن دو ورق: پرواز و چرخش به سمت زمین و محو شدن
 function animateBurn(el: HTMLElement, f: Flight, onDone: () => void): void {
-  const dx = f.to.left - f.from.left;
-  const dy = f.to.top - f.from.top;
-  const s = f.to.width / Math.max(1, f.from.width);
-  el.animate(
-    [
-      { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', opacity: 1, offset: 0 },
-      {
-        transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 40}px) rotate(150deg) scale(${(1 + s) / 2})`,
-        opacity: 1,
-        offset: 0.55,
-      },
-      {
-        transform: `translate(${dx}px, ${dy}px) rotate(330deg) scale(${s * 0.9})`,
-        opacity: 0,
-        offset: 1,
-      },
-    ],
-    { duration: 640, easing: 'cubic-bezier(0.3, 0.05, 0.4, 1)', fill: 'forwards' },
-  )
-    .finished.then(onDone)
-    .catch(onDone);
+  try {
+    const dx = f.to.left - f.from.left;
+    const dy = f.to.top - f.from.top;
+    const s = f.to.width / Math.max(1, f.from.width);
+    el.animate(
+      [
+        { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', opacity: 1, offset: 0 },
+        {
+          transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 40}px) rotate(150deg) scale(${(1 + s) / 2})`,
+          opacity: 1,
+          offset: 0.55,
+        },
+        {
+          transform: `translate(${dx}px, ${dy}px) rotate(330deg) scale(${s * 0.9})`,
+          opacity: 0,
+          offset: 1,
+        },
+      ],
+      { duration: 640, easing: 'cubic-bezier(0.3, 0.05, 0.4, 1)', fill: 'forwards' },
+    )
+      .finished.then(onDone)
+      .catch(onDone);
+  } catch {
+    onDone();
+  }
 }
 
 // جمع‌کردن دست: وسط → وارونه شدن → نشستن روی نشان برنده
@@ -214,50 +223,55 @@ function animateGather(
   idx: number,
   onDone: () => void,
 ): void {
-  const cx1 = center.x - (from.left + from.width / 2);
-  const cy1 = center.y - (from.top + from.height / 2);
-  const s2 = target.width / Math.max(1, from.width);
-  const tx2 = target.left - from.left;
-  const ty2 = target.top - from.top;
-  const tilt = idx % 2 === 0 ? -(5 + idx * 3) : 5 + idx * 3;
-  const inner = el.querySelector<HTMLElement>('.fly-inner');
-  inner?.animate(
-    [
-      { transform: 'rotateY(0deg)', offset: 0 },
-      { transform: 'rotateY(0deg)', offset: 0.3 },
-      { transform: 'rotateY(180deg)', offset: 0.48 },
-      { transform: 'rotateY(180deg)', offset: 1 },
-    ],
-    { duration: 1250, easing: 'ease-in-out', fill: 'forwards' },
-  );
-  el.animate(
-    [
-      { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', opacity: 1, offset: 0 },
-      {
-        transform: `translate(${cx1}px, ${cy1}px) rotate(${tilt}deg) scale(1)`,
-        opacity: 1,
-        offset: 0.3,
-      },
-      {
-        transform: `translate(${cx1}px, ${cy1}px) rotate(${tilt}deg) scale(1)`,
-        opacity: 1,
-        offset: 0.48,
-      },
-      {
-        transform: `translate(${tx2}px, ${ty2}px) rotate(0deg) scale(${s2})`,
-        opacity: 1,
-        offset: 0.85,
-      },
-      {
-        transform: `translate(${tx2}px, ${ty2}px) rotate(0deg) scale(${s2})`,
-        opacity: 0,
-        offset: 1,
-      },
-    ],
-    { duration: 1250, easing: 'ease-in-out', fill: 'forwards' },
-  )
-    .finished.then(onDone)
-    .catch(onDone);
+  try {
+    const cx1 = center.x - (from.left + from.width / 2);
+    const cy1 = center.y - (from.top + from.height / 2);
+    const s2 = target.width / Math.max(1, from.width);
+    const tx2 = target.left - from.left;
+    const ty2 = target.top - from.top;
+    const tilt = idx % 2 === 0 ? -(5 + idx * 3) : 5 + idx * 3;
+    const inner = el.querySelector<HTMLElement>('.fly-inner');
+    inner?.animate(
+      [
+        { transform: 'rotateY(0deg)', offset: 0 },
+        { transform: 'rotateY(0deg)', offset: 0.3 },
+        { transform: 'rotateY(180deg)', offset: 0.48 },
+        { transform: 'rotateY(180deg)', offset: 1 },
+      ],
+      { duration: 1250, easing: 'ease-in-out', fill: 'forwards' },
+    );
+    el.animate(
+      [
+        { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', opacity: 1, offset: 0 },
+        {
+          transform: `translate(${cx1}px, ${cy1}px) rotate(${tilt}deg) scale(1)`,
+          opacity: 1,
+          offset: 0.3,
+        },
+        {
+          transform: `translate(${cx1}px, ${cy1}px) rotate(${tilt}deg) scale(1)`,
+          opacity: 1,
+          offset: 0.48,
+        },
+        {
+          transform: `translate(${tx2}px, ${ty2}px) rotate(0deg) scale(${s2})`,
+          opacity: 1,
+          offset: 0.85,
+        },
+        {
+          transform: `translate(${tx2}px, ${ty2}px) rotate(0deg) scale(${s2})`,
+          opacity: 0,
+          offset: 1,
+        },
+      ],
+      { duration: 1250, easing: 'ease-in-out', fill: 'forwards' },
+    )
+      .finished.then(onDone)
+      .catch(onDone);
+  } catch {
+    // بدون WAAPI کارتِ جمع‌شده هم تمام‌شده حساب می‌شود تا نشان برنده ظاهر شود
+    onDone();
+  }
 }
 
 function Clone(props: {
@@ -306,43 +320,47 @@ function DealCard(props: { deck: Rect; to: Rect; delay: number }) {
       ref={(el) => {
         if (!el || el.dataset.on === '1') return;
         el.dataset.on = '1';
-        const dx = props.to.left - props.deck.left;
-        const dy = props.to.top - props.deck.top;
-        el.animate(
-          [
+        try {
+          const dx = props.to.left - props.deck.left;
+          const dy = props.to.top - props.deck.top;
+          el.animate(
+            [
+              {
+                transform: 'translate(0px, 0px) rotate(-12deg) scale(0.92)',
+                opacity: 0,
+                offset: 0,
+              },
+              {
+                transform: 'translate(0px, 0px) rotate(-12deg) scale(0.92)',
+                opacity: 1,
+                offset: 0.08,
+              },
+              {
+                transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 46}px) rotate(8deg) scale(0.96)`,
+                opacity: 1,
+                offset: 0.55,
+              },
+              {
+                transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(0.85)`,
+                opacity: 1,
+                offset: 0.84,
+              },
+              {
+                transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(0.85)`,
+                opacity: 0,
+                offset: 1,
+              },
+            ],
             {
-              transform: 'translate(0px, 0px) rotate(-12deg) scale(0.92)',
-              opacity: 0,
-              offset: 0,
+              duration: 460,
+              delay: props.delay,
+              easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)',
+              fill: 'both',
             },
-            {
-              transform: 'translate(0px, 0px) rotate(-12deg) scale(0.92)',
-              opacity: 1,
-              offset: 0.08,
-            },
-            {
-              transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 46}px) rotate(8deg) scale(0.96)`,
-              opacity: 1,
-              offset: 0.55,
-            },
-            {
-              transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(0.85)`,
-              opacity: 1,
-              offset: 0.84,
-            },
-            {
-              transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(0.85)`,
-              opacity: 0,
-              offset: 1,
-            },
-          ],
-          {
-            duration: 460,
-            delay: props.delay,
-            easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)',
-            fill: 'both',
-          },
-        );
+          );
+        } catch {
+          /* بدون WAAPI کارت با انیمیشن CSS دست نمایش داده می‌شود */
+        }
       }}
     >
       <div className="card-face-back" />
@@ -406,7 +424,6 @@ export function useTableMotion(args: Args): {
   noteBurn: (items: { card: CardId; from: Rect }[]) => void;
   hidden: Set<CardId>;
   markerSeat: number | null;
-  markerVisible: boolean;
   lingering: TrickEntry[] | null;
   stale: TrickEntry[] | null;
   held: number[];
@@ -433,7 +450,6 @@ export function useTableMotion(args: Args): {
   const [hidden, setHidden] = useState<Set<CardId>>(() => new Set());
   const [gather, setGather] = useState<Gather | null>(null);
   const [markerSeat, setMarkerSeat] = useState<number | null>(null);
-  const [markerVisible, setMarkerVisible] = useState(false);
   const [deal, setDeal] = useState<Deal | null>(null);
   const [lingering, setLingering] = useState<TrickEntry[] | null>(null);
   const [gatherTick, setGatherTick] = useState(0);
@@ -526,7 +542,6 @@ export function useTableMotion(args: Args): {
       if (feltEl) felt = feltEl.getBoundingClientRect();
     }
     setMarkerSeat(pg.winner);
-    setMarkerVisible(false);
     setLingering(null);
     if (target && felt) setGather({ cards, winner: pg.winner, target, felt });
   }, [rootRef]);
@@ -606,7 +621,6 @@ export function useTableMotion(args: Args): {
       setLingering(null);
     } else if (cur.length > 0 && markerSeat !== null) {
       setMarkerSeat(null);
-      setMarkerVisible(false);
     }
     prevTrick.current = cur;
   }, [trick, leader, fullN, markerSeat, rootRef, flights, startPendingGather]);
@@ -633,7 +647,6 @@ export function useTableMotion(args: Args): {
     pendingGather.current = null;
     if (markerSeat !== null) {
       setMarkerSeat(null);
-      setMarkerVisible(false);
     }
     if (lingering !== null) setLingering(null);
   }, [phase, markerSeat, lingering]);
@@ -677,7 +690,6 @@ export function useTableMotion(args: Args): {
     gatherDone.current += 1;
     if (gatherDone.current >= gather.cards.length) {
       setGather(null);
-      setMarkerVisible(true);
     }
   }, [gather]);
 
@@ -737,7 +749,6 @@ export function useTableMotion(args: Args): {
     noteBurn,
     hidden,
     markerSeat,
-    markerVisible,
     lingering,
     stale,
     held,

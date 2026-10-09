@@ -34,6 +34,10 @@ export class GameClient {
   private lastError: string | null = null;
   private stateQ: AnyView[] = [];
   private flushScheduled = false;
+  // آخرین اکشنِ ارسال‌نشده (اتصال قطع بود) — بلافاصله بعد از باز شدن فرستاده می‌شود
+  private pendingAction: Action | null = null;
+  private lastIn = 0;
+  private keepalive: number | null = null;
 
   constructor(
     private readonly cfg: WebConfig,
@@ -65,6 +69,38 @@ export class GameClient {
     }
   }
 
+  // نگه‌بان سلامت اتصال: هر ۳۰ ثانیه sync می‌فرستد؛ اگر ۹۰ ثانیه هیچ پیامی
+  // نرسیده باشد (اتصال نیمه‌باز — موبایل در پس‌زمینه، قطعی NAT) اتصال را
+  // می‌بندد تا مسیر reconnect معمولی اجرا شود
+  private startKeepalive(): void {
+    this.stopKeepalive();
+    this.lastIn = Date.now();
+    this.keepalive = window.setInterval(() => {
+      const ws = this.ws;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      if (Date.now() - this.lastIn > 90_000) {
+        try {
+          ws.close();
+        } catch {
+          /* مسیر onclose اجرا می‌شود */
+        }
+        return;
+      }
+      try {
+        ws.send(JSON.stringify({ t: 'sync' } satisfies ClientMsg));
+      } catch {
+        /* ارسال نشد — در تلاش بعدی دوباره */
+      }
+    }, 30_000);
+  }
+
+  private stopKeepalive(): void {
+    if (this.keepalive !== null) {
+      window.clearInterval(this.keepalive);
+      this.keepalive = null;
+    }
+  }
+
   connect(gameCode: string, initData: string): void {
     if (this.disposed) return;
     const url = `${toWsBase(this.cfg.ws)}/ws?game=${encodeURIComponent(
@@ -79,10 +115,18 @@ export class GameClient {
       this.failCount = 0;
       this.lastError = null;
       this.handlers.onStatus('open');
+      this.startKeepalive();
       ws.send(JSON.stringify({ t: 'sync' } satisfies ClientMsg));
+      // اکشنی که حین قطعی زده شده بود حالا ارسال می‌شود (سرور صحت آن را می‌سنجد)
+      if (this.pendingAction) {
+        const a = this.pendingAction;
+        this.pendingAction = null;
+        ws.send(JSON.stringify({ t: 'act', action: a } satisfies ClientMsg));
+      }
     };
 
     ws.onmessage = (ev) => {
+      this.lastIn = Date.now();
       let msg: ServerMsg;
       try {
         msg = JSON.parse(String(ev.data)) as ServerMsg;
@@ -98,8 +142,10 @@ export class GameClient {
     };
 
     ws.onclose = (ev) => {
+      this.stopKeepalive();
       if (this.disposed) return;
       if (ev.code === 4001) {
+        this.pendingAction = null;
         this.handlers.onStatus('fatal');
         this.handlers.onError(
           this.lastError ?? 'اتصال رد شد؛ کد بازی یا ورود شما معتبر نیست'
@@ -108,6 +154,7 @@ export class GameClient {
       }
       this.failCount++;
       if (this.failCount >= 8) {
+        this.pendingAction = null;
         this.handlers.onStatus('fatal');
         this.handlers.onError(
           this.lastError ?? 'اتصال برقرار نشد؛ بعداً دوباره تلاش کنید'
@@ -127,13 +174,22 @@ export class GameClient {
 
   act(action: Action): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ t: 'act', action } satisfies ClientMsg));
+      try {
+        this.ws.send(JSON.stringify({ t: 'act', action } satisfies ClientMsg));
+        return;
+      } catch {
+        /* ارسال نشد — مثل حالت قطعی، زیر بار می‌رود */
+      }
     }
+    // اتصال سالم نیست: آخرین اکشن نگه داشته می‌شود تا با اولین اتصال برود
+    this.pendingAction = action;
   }
 
   dispose(): void {
     this.disposed = true;
     this.stateQ = [];
+    this.pendingAction = null;
+    this.stopKeepalive();
     try {
       this.ws?.close();
     } catch {

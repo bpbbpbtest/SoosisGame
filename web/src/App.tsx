@@ -128,12 +128,14 @@ export default function App() {
 
   useEffect(() => {
     if (!cfg || !code) return;
+    // تعویض کد بازی: وضعیت بازی قبلی نباید تا اولین فریم جدید دیده شود
+    setState(null);
+    setError(null);
     const initData = tgInitData() || devInitData();
     const client = new GameClient(cfg, {
       onReady: () => undefined,
       onState: (s) => {
         setState(s);
-        setStatus('open');
       },
       onError: setError,
       onStatus: setStatus,
@@ -157,6 +159,8 @@ export default function App() {
       '',
       c ? `${base}?g=${encodeURIComponent(c)}` : base
     );
+    setState(null);
+    setError(null);
     setCode(c || null);
   }, []);
 

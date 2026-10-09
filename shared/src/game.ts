@@ -660,7 +660,7 @@ export class HokmGame implements GameState {
       lastRound: this.lastRound,
       can: {
         leave: this.phase === 'lobby' && seat !== null,
-        start: this.phase === 'lobby' && seat !== null,
+        start: this.phase === 'lobby' && seat !== null && this.playerCount() === 4,
         cut: this.phase === 'cut' && seat !== null && seat === partnerOf(this.hakem ?? -1),
         trump: this.phase === 'trump' && isHakem,
         redeal:
