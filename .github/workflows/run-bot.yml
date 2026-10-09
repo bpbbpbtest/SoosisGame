@@ -67,7 +67,10 @@ jobs:
           nohup /tmp/cloudflared tunnel --url http://127.0.0.1:8787 --no-autoupdate > /tmp/tunnel.log 2>&1 &
           echo $! > /tmp/tunnel.pid
           for i in $(seq 1 60); do
-            URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/tunnel.log | head -n1 || true)
+            # آدرس خودِ تیونل را بگیر — نه دامنهٔ عمومی api.trycloudflare.com که گاهی
+            # زودتر در لاگ می‌آید و اگر انتخاب شود کل مینی‌اپ از کار می‌افتد
+            URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/tunnel.log \
+              | grep -v '^https://api\.' | head -n1 || true)
             if [ -n "$URL" ]; then
               echo "url=$URL" >> "$GITHUB_OUTPUT"
               exit 0
