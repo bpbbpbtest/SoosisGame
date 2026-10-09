@@ -487,12 +487,6 @@ button:active {
   transform: translateX(-50%);
 }
 
-.trick-card.pos-1 {
-  bottom: 84px;
-  left: 50%;
-  transform: translateX(-50%);
-}
-
 .trick-card.is-ace {
   filter: drop-shadow(0 0 8px rgba(232, 193, 90, 0.95));
   z-index: 2;
@@ -594,7 +588,8 @@ button:active {
 }
 
 .seat.top .trick-stack {
-  top: calc(100% + 6px);
+  /* زیرِ کارتِ بازی‌شده تا با آن هم‌پوشانی نداشته باشد */
+  top: calc(100% + 78px);
   right: calc(50% + 27px);
   left: auto;
   width: 120px;

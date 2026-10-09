@@ -54,7 +54,8 @@ export function GameTable({ state, act }: Props) {
     motion.markerSeat !== null &&
     state.trick.length === 0 &&
     (state.phase === 'play' || state.phase === 'bam' || state.phase === 'roundEnd');
-  const fromTrick = state.trick.length > 0 ? state.trick : (motion.lingering ?? []);
+  const fromTrick =
+    state.trick.length > 0 ? state.trick : (motion.lingering ?? motion.stale ?? []);
   const fieldCards: { seat: number; card: CardId; ace: boolean }[] =
     fromTrick.length > 0
       ? fromTrick.map((tc) => ({ seat: tc.seat, card: tc.card, ace: false }))

@@ -56,7 +56,8 @@ export function GameTable2({ state, act }: Props) {
     motion.markerSeat !== null &&
     state.trick.length === 0 &&
     (state.phase === 'play' || state.phase === 'roundEnd');
-  const fromTrick = state.trick.length > 0 ? state.trick : (motion.lingering ?? []);
+  const fromTrick =
+    state.trick.length > 0 ? state.trick : (motion.lingering ?? motion.stale ?? []);
   const fieldCards: { seat: number; card: CardId; ace: boolean }[] =
     fromTrick.length > 0
       ? fromTrick.map((tc) => ({ seat: tc.seat, card: tc.card, ace: false }))
@@ -64,12 +65,8 @@ export function GameTable2({ state, act }: Props) {
         ? []
         : reveal.cards;
   const selfField = fieldCards.filter((c) => c.seat === anchor);
-  const theirFelt: { seat: number; card: CardId; ace: boolean }[] = reveal.active
-    ? []
-    : fieldCards.filter((c) => c.seat !== anchor);
-  const theirPanel = reveal.active
-    ? (fieldCards.find((c) => c.seat !== anchor) ?? null)
-    : null;
+  // کارت بازی‌شدهٔ حریف همیشه جلوی پنل خودش می‌نشیند (نه وسط زمین)
+  const theirPanel = fieldCards.find((c) => c.seat !== anchor) ?? null;
   const stackFor = (seat: number) => state.tricks[seat];
 
   const remaining =
@@ -248,15 +245,6 @@ export function GameTable2({ state, act }: Props) {
             key={card}
             data-fcc={card}
             className={`trick-card pos-0${ace ? ' is-ace' : ''}${reveal.active ? ' reveal' : ''}`}
-          >
-            <CardView card={card} size="md" />
-          </div>
-        ))}
-        {theirFelt.map(({ card, ace }) => (
-          <div
-            key={card}
-            data-fcc={card}
-            className={`trick-card pos-1${ace ? ' is-ace' : ''}${reveal.active ? ' reveal' : ''}`}
           >
             <CardView card={card} size="md" />
           </div>

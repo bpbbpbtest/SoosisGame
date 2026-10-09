@@ -404,6 +404,7 @@ export function useTableMotion(args: Args): {
   markerSeat: number | null;
   markerVisible: boolean;
   lingering: TrickEntry[] | null;
+  stale: TrickEntry[] | null;
   held: number[];
   renderLayer: () => ReactNode;
 } {
@@ -708,6 +709,11 @@ export function useTableMotion(args: Args): {
     );
   }, [flights, gather, deal, finishFlight, doneOne, rootRef]);
 
+  // دستِ تمام‌شده نباید حتی برای یک رندر هم ناپدید شود — وگرنه المان کارت دوم
+  // از DOM حذف می‌شود و انیمیشن‌اش قطع و کارت ناگهانی ظاهر می‌شود
+  const stale =
+    trick.length === 0 && prevTrick.current.length === fullN ? prevTrick.current : null;
+
   // دستهٔ برنده تا وقتی کارت‌ها واقعاً جمع و جلوی بازیکن گذاشته نشده‌اند نمایش داده نمی‌شود
   const held = useMemo(() => {
     const h = [0, 0, 0, 0];
@@ -716,5 +722,16 @@ export function useTableMotion(args: Args): {
     return h;
   }, [gather, lingering, leader]);
 
-  return { notePlay, noteDraw, noteBurn, hidden, markerSeat, markerVisible, lingering, held, renderLayer };
+  return {
+    notePlay,
+    noteDraw,
+    noteBurn,
+    hidden,
+    markerSeat,
+    markerVisible,
+    lingering,
+    stale,
+    held,
+    renderLayer,
+  };
 }
