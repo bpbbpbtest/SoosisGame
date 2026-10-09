@@ -35,9 +35,8 @@ interface Flight {
 interface Gather {
   cards: { card: CardId; from: Rect }[];
   winner: number;
-  target: Rect | null;
-  felt: Rect | null;
-  stage: 'measure' | 'run';
+  target: Rect;
+  felt: Rect;
 }
 
 interface Deal {
@@ -88,14 +87,19 @@ function tiltOf(dx: number, dy: number): number {
 function animateSlotIn(el: HTMLElement, from: Rect, flip: boolean): void {
   try {
     const cardEl = el.querySelector<HTMLElement>(':scope > .card') ?? el;
+    // اول همهٔ انیمیشن‌های در حال اجرا (CSS/WAAPI) را لغو کن تا اندازه‌گیری
+    // مقصد از روی حالت طبیعی المان انجام شود نه حالت ترانسفورم‌شده
+    const nodes: HTMLElement[] = cardEl === el ? [el] : [el, cardEl];
+    for (const node of nodes) {
+      const holder = node as HTMLElement & {
+        getAnimations?: () => Array<{ cancel: () => void }>;
+      };
+      for (const a of holder.getAnimations?.() ?? []) a.cancel();
+    }
     const to = cardEl.getBoundingClientRect();
     const dx = from.left - to.left;
     const dy = from.top - to.top;
     const tilt = flip ? 0 : tiltOf(dx, dy);
-    const holder = cardEl as HTMLElement & {
-      getAnimations?: () => Array<{ cancel: () => void }>;
-    };
-    for (const a of holder.getAnimations?.() ?? []) a.cancel();
     if (flip) {
       cardEl.animate(
         [
@@ -409,7 +413,9 @@ export function useTableMotion(args: Args): {
   renderLayer: () => ReactNode;
 } {
   const { rootRef, handRef, phase, trick, leader, hand, fullN } = args;
-  const pendingPlay = useRef<{ card: CardId; from: Rect } | null>(null);
+  // محل کلیک روی هر کارت دست (به‌جای یک جایگاه واحد، چون ثبت یکی می‌توانست
+  // رکورد ورق دیگر را پاک کند و انیمیشن بازیکن دوم ساخته نشود)
+  const pendingPlays = useRef(new Map<CardId, Rect>());
   const pendingDraw = useRef<{ card: CardId | null; from: Rect; flip: boolean; hand: CardId[] } | null>(
     null,
   );
@@ -454,11 +460,10 @@ export function useTableMotion(args: Args): {
   );
 
   const notePlay = useCallback((card: CardId, from: Rect) => {
-    const p = { card, from };
-    pendingPlay.current = p;
+    pendingPlays.current.set(card, from);
     window.setTimeout(() => {
-      if (pendingPlay.current === p) pendingPlay.current = null;
-    }, 3000);
+      if (pendingPlays.current.get(card) === from) pendingPlays.current.delete(card);
+    }, 8000);
   }, []);
 
   const noteDraw = useCallback(
@@ -467,7 +472,7 @@ export function useTableMotion(args: Args): {
       pendingDraw.current = p;
       window.setTimeout(() => {
         if (pendingDraw.current === p) pendingDraw.current = null;
-      }, 3000);
+      }, 8000);
     },
     [],
   );
@@ -477,7 +482,7 @@ export function useTableMotion(args: Args): {
     pendingBurn.current = p;
     window.setTimeout(() => {
       if (pendingBurn.current === p) pendingBurn.current = null;
-    }, 3000);
+    }, 8000);
   }, []);
 
   // پخش ورق در شروع دور: ورود به cut/trump از فاز قبلی (نه cut→trump)
@@ -496,6 +501,36 @@ export function useTableMotion(args: Args): {
     );
   }, [phase, fullN]);
 
+  const startPendingGather = useCallback(() => {
+    const pg = pendingGather.current;
+    if (!pg) return;
+    pendingGather.current = null;
+    gatherDone.current = 0;
+    // موقعیت زندهٔ کارت‌ها را همین حالا بخوان — انیمیشن‌های ورود تا این لحظه تمام شده‌اند
+    let cards = pg.cards;
+    let target: Rect | null = null;
+    let felt: Rect | null = null;
+    const root = rootRef.current;
+    if (root) {
+      const live: { card: CardId; from: Rect }[] = [];
+      root.querySelectorAll<HTMLElement>('[data-fcc]').forEach((el) => {
+        const c = el.getAttribute('data-fcc');
+        if (c) live.push({ card: c as CardId, from: el.getBoundingClientRect() });
+      });
+      if (live.length === pg.cards.length) cards = live;
+      // اندازه‌گیری مقصد هم‌زمان است: با یک کامیت واحد هم کارت‌های اصلی از DOM
+      // حذف می‌شوند هم کلون‌ها نشسته‌اند — هیچ فریمی بدون کارت دیده نمی‌شود
+      const mk = root.querySelector<HTMLElement>(`[data-fmk="w${pg.winner}"]`);
+      const feltEl = root.querySelector<HTMLElement>('.trick-area');
+      if (mk) target = mk.getBoundingClientRect();
+      if (feltEl) felt = feltEl.getBoundingClientRect();
+    }
+    setMarkerSeat(pg.winner);
+    setMarkerVisible(false);
+    setLingering(null);
+    if (target && felt) setGather({ cards, winner: pg.winner, target, felt });
+  }, [rootRef]);
+
   // مستطیل کارت‌های بازی‌شده (فقط وقتی دست در جریان است — نه کارت‌های reveal)
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -513,31 +548,15 @@ export function useTableMotion(args: Args): {
     if (trick.length === 0 && prevTrick.current.length === fullN) {
       setLingering((l) => (l === null ? prevTrick.current.slice() : l));
     } else if (trick.length > 0) {
+      // دستِ بعدی زود شروع شد: جمعِ دستِ قبلی باید قبل از پخش‌شدن انجام شود
+      // (در passive effect دیر است و یک فریم بدون کارت دیده می‌شود)
+      if (prevTrick.current.length === 0 && pendingGather.current && flights.length === 0) {
+        pendingGather.current.readyAt = 0;
+        startPendingGather();
+      }
       setLingering((l) => (l !== null ? null : l));
     }
-  }, [trick, fullN]);
-
-  const startPendingGather = useCallback(() => {
-    const pg = pendingGather.current;
-    if (!pg) return;
-    pendingGather.current = null;
-    gatherDone.current = 0;
-    // موقعیت زندهٔ کارت‌ها را همین حالا بخوان — انیمیشن‌های ورود تا این لحظه تمام شده‌اند
-    let cards = pg.cards;
-    const root = rootRef.current;
-    if (root) {
-      const live: { card: CardId; from: Rect }[] = [];
-      root.querySelectorAll<HTMLElement>('[data-fcc]').forEach((el) => {
-        const c = el.getAttribute('data-fcc');
-        if (c) live.push({ card: c as CardId, from: el.getBoundingClientRect() });
-      });
-      if (live.length === pg.cards.length) cards = live;
-    }
-    setMarkerSeat(pg.winner);
-    setMarkerVisible(false);
-    setLingering(null);
-    setGather({ cards, winner: pg.winner, target: null, felt: null, stage: 'measure' });
-  }, [rootRef]);
+  }, [trick, fullN, flights, startPendingGather]);
 
   // کارت تازه بازی‌شده: هر دو کارت با انیمیشن روی زمین می‌نشینند (بدون مخفی‌کردن)
   useEffect(() => {
@@ -554,14 +573,22 @@ export function useTableMotion(args: Args): {
         if (prev.some((p) => p.seat === tc.seat && p.card === tc.card)) continue;
         const toEl = rootRef.current.querySelector<HTMLElement>(`[data-fcc="${tc.card}"]`);
         if (!toEl) continue;
-        const pp = pendingPlay.current;
-        if (pp && pp.card === tc.card) {
-          pendingPlay.current = null;
-          animateSlotIn(toEl, pp.from, false);
+        const from = pendingPlays.current.get(tc.card);
+        if (from) {
+          pendingPlays.current.delete(tc.card);
+          animateSlotIn(toEl, from, false);
           continue;
         }
         const panel = rootRef.current.querySelector<HTMLElement>(`[data-seat="${tc.seat}"]`);
-        if (panel) animateSlotIn(toEl, centerRect(panel.getBoundingClientRect()), true);
+        if (panel) {
+          animateSlotIn(toEl, centerRect(panel.getBoundingClientRect()), true);
+          continue;
+        }
+        // خودِ شما در ۲نفره پنل ندارد — از مرکز دست حرکت را شروع کن تا
+        // انیمیشن ورود هیچ‌وقت حذف نشود
+        if (handRef?.current) {
+          animateSlotIn(toEl, centerRect(handRef.current.getBoundingClientRect()), false);
+        }
       }
     }
     if (
@@ -645,24 +672,6 @@ export function useTableMotion(args: Args): {
     }
   }, [hand, rootRef, startFlight]);
 
-  // اندازه‌گیری جایگاه نشانِ برندۀ دست (وقتی مارکر هنوز مخفی است)
-  useLayoutEffect(() => {
-    if (!gather || gather.stage !== 'measure') return;
-    const root = rootRef.current;
-    const mk = root?.querySelector<HTMLElement>(`[data-fmk="w${gather.winner}"]`);
-    const felt = root?.querySelector<HTMLElement>('.trick-area');
-    if (!root || !mk || !felt) {
-      setGather(null);
-      return;
-    }
-    setGather({
-      ...gather,
-      target: mk.getBoundingClientRect(),
-      felt: felt.getBoundingClientRect(),
-      stage: 'run',
-    });
-  }, [gather, rootRef]);
-
   const doneOne = useCallback(() => {
     if (!gather) return;
     gatherDone.current += 1;
@@ -676,7 +685,7 @@ export function useTableMotion(args: Args): {
     const root = rootRef.current;
     const g = gather;
     let gatherNodes: ReactNode = null;
-    if (g && g.stage === 'run' && g.target && g.felt) {
+    if (g) {
       const target = g.target;
       const center = {
         x: g.felt.left + g.felt.width / 2,
