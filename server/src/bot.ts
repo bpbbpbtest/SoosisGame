@@ -1,4 +1,5 @@
-import { Bot, InlineKeyboard, type BotCommand, type Context, type ReplyKeyboardMarkup } from 'grammy';
+import { Bot, InlineKeyboard, type Context } from 'grammy';
+import type { BotCommand, ReplyKeyboardMarkup } from 'grammy/types';
 import type { GameMode, ManagedGame } from 'shared';
 import type { Config } from './config';
 import type { GameStore } from './store';
