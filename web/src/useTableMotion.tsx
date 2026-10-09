@@ -91,7 +91,6 @@ function animateSlotIn(el: HTMLElement, from: Rect, flip: boolean): void {
     const to = cardEl.getBoundingClientRect();
     const dx = from.left - to.left;
     const dy = from.top - to.top;
-    const arc = arcOf(dx, dy);
     const tilt = flip ? 0 : tiltOf(dx, dy);
     const holder = cardEl as HTMLElement & {
       getAnimations?: () => Array<{ cancel: () => void }>;
@@ -101,30 +100,21 @@ function animateSlotIn(el: HTMLElement, from: Rect, flip: boolean): void {
       cardEl.animate(
         [
           {
-            transform: `translate(${dx}px, ${dy}px) rotateY(-90deg) scale(1.1)`,
-            opacity: 0.4,
+            transform: `translate(${dx}px, ${dy}px) rotateY(-90deg) scale(1.06)`,
+            opacity: 0.5,
             offset: 0,
-          },
-          {
-            transform: `translate(${dx * 0.5}px, ${dy * 0.5 - arc}px) rotateY(-35deg) scale(1.05)`,
-            opacity: 1,
-            offset: 0.58,
           },
           { transform: 'translate(0px, 0px) rotateY(0deg) scale(1)', opacity: 1, offset: 1 },
         ],
-        { duration: 640, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' },
+        { duration: 850, easing: 'linear' },
       );
     } else {
       cardEl.animate(
         [
-          { transform: `translate(${dx}px, ${dy}px) rotate(${tilt}deg) scale(1.06)`, offset: 0 },
-          {
-            transform: `translate(${dx * 0.5}px, ${dy * 0.5 - arc}px) rotate(${tilt}deg) scale(1.03)`,
-            offset: 0.55,
-          },
+          { transform: `translate(${dx}px, ${dy}px) rotate(${tilt}deg) scale(1.05)`, offset: 0 },
           { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 1 },
         ],
-        { duration: 560, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' },
+        { duration: 850, easing: 'linear' },
       );
     }
   } catch {
@@ -414,6 +404,7 @@ export function useTableMotion(args: Args): {
   markerSeat: number | null;
   markerVisible: boolean;
   lingering: TrickEntry[] | null;
+  held: number[];
   renderLayer: () => ReactNode;
 } {
   const { rootRef, handRef, phase, trick, leader, hand, fullN } = args;
@@ -717,5 +708,13 @@ export function useTableMotion(args: Args): {
     );
   }, [flights, gather, deal, finishFlight, doneOne, rootRef]);
 
-  return { notePlay, noteDraw, noteBurn, hidden, markerSeat, markerVisible, lingering, renderLayer };
+  // دستهٔ برنده تا وقتی کارت‌ها واقعاً جمع و جلوی بازیکن گذاشته نشده‌اند نمایش داده نمی‌شود
+  const held = useMemo(() => {
+    const h = [0, 0, 0, 0];
+    if (gather !== null) h[gather.winner] += 1;
+    if (lingering !== null && leader !== null) h[leader] += 1;
+    return h;
+  }, [gather, lingering, leader]);
+
+  return { notePlay, noteDraw, noteBurn, hidden, markerSeat, markerVisible, lingering, held, renderLayer };
 }

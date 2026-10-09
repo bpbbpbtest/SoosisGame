@@ -45,35 +45,41 @@ export function TrickStack(props: {
   count: number;
   self?: boolean;
   perGroup?: number;
+  hold?: number;
 }) {
   const n = Math.min(Math.max(props.count, 0), 13);
   if (n === 0) return null;
   const perGroup = Math.max(1, Math.min(props.perGroup ?? 4, 4));
-  const small = perGroup >= 4;
-  const w = small ? 14 : 22;
-  const h = small ? 19 : 30;
-  const off = small ? 4 : 6;
+  // ۲نفره: اندازهٔ متوسط با آفست کم تا ۷ دست در یک ردیف جا شود
+  const dense = perGroup < 4;
+  const w = dense ? 16 : 14;
+  const h = dense ? 22 : 19;
+  const off = dense ? 2 : 4;
   const gw = w + (perGroup - 1) * off;
+  const hold = Math.min(Math.max(props.hold ?? 0, 0), n);
   return (
-    <div className={`trick-stack${props.self ? ' self' : ''}`} aria-hidden>
-      {Array.from({ length: n }, (_, g) => (
-        <div
-          key={g}
-          className="ts-group"
-          style={{ width: gw, height: h }}
-          data-fmk={g === n - 1 ? `w${props.seat}` : undefined}
-        >
-          {Array.from({ length: perGroup }, (_, i) => (
-            <div
-              key={i}
-              className="st-card"
-              style={{ left: i * off, width: w, height: h, zIndex: i + 1 }}
-            >
-              <div className="card-face-back" />
-            </div>
-          ))}
-        </div>
-      ))}
+    <div className={`trick-stack${props.self ? ' self' : ''}${dense ? ' p2' : ''}`} aria-hidden>
+      {Array.from({ length: n }, (_, g) => {
+        const held = g >= n - hold;
+        return (
+          <div
+            key={held ? `h${g}` : `v${g}`}
+            className="ts-group"
+            style={{ width: gw, height: h, visibility: held ? 'hidden' : undefined }}
+            data-fmk={g === n - 1 ? `w${props.seat}` : undefined}
+          >
+            {Array.from({ length: perGroup }, (_, i) => (
+              <div
+                key={i}
+                className="st-card"
+                style={{ left: i * off, width: w, height: h, zIndex: i + 1 }}
+              >
+                <div className="card-face-back" />
+              </div>
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -87,6 +93,7 @@ export function SeatPanel(props: {
   played?: { card: CardId; ace?: boolean; reveal?: boolean } | null;
   stack?: number;
   perGroup?: number;
+  hold?: number;
 }) {
   const p = props.player;
   const played = props.played;
@@ -114,7 +121,12 @@ export function SeatPanel(props: {
         </div>
       ) : null}
       {p ? (
-        <TrickStack seat={p.seat} count={props.stack ?? 0} perGroup={props.perGroup} />
+        <TrickStack
+          seat={p.seat}
+          count={props.stack ?? 0}
+          perGroup={props.perGroup}
+          hold={props.hold}
+        />
       ) : null}
     </div>
   );

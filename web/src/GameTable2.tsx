@@ -237,6 +237,7 @@ export function GameTable2({ state, act }: Props) {
               : null
           }
           stack={stackFor(opp)}
+          hold={motion.held[opp]}
           perGroup={2}
         />
       </div>
@@ -260,7 +261,7 @@ export function GameTable2({ state, act }: Props) {
             <CardView card={card} size="md" />
           </div>
         ))}
-        <TrickStack seat={anchor} count={stackFor(anchor)} self perGroup={2} />
+        <TrickStack seat={anchor} count={stackFor(anchor)} self perGroup={2} hold={motion.held[anchor]} />
         {reveal.active ? (
           <div className={`hakem-reveal${reveal.done ? ' done' : ''}`}>
             {reveal.done

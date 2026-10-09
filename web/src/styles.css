@@ -565,6 +565,12 @@ button:active {
   pointer-events: none;
 }
 
+/* ۲نفره: همهٔ ۷ دست در یک ردیف */
+.trick-stack.p2 {
+  flex-wrap: nowrap;
+  gap: 2px;
+}
+
 .trick-stack .ts-group {
   position: relative;
   flex: 0 0 auto;

@@ -66,6 +66,10 @@ export function GameTable({ state, act }: Props) {
     fieldCards.filter((c) => c.seat !== anchor).map((c) => [c.seat, c] as const),
   );
   const stackFor = (seat: number) => state.tricks[teamOf(seat)];
+  const holdFor = (seat: number) => {
+    const t = teamOf(seat);
+    return motion.held.reduce((a, v, s) => (teamOf(s) === t ? a + v : a), 0);
+  };
 
   const remaining =
     state.deadline !== null ? Math.max(0, Math.ceil((state.deadline - now) / 1000)) : null;
@@ -238,6 +242,7 @@ export function GameTable({ state, act }: Props) {
                   : null
               }
               stack={stackFor(seat)}
+              hold={holdFor(seat)}
               perGroup={4}
             />
           );
@@ -254,7 +259,7 @@ export function GameTable({ state, act }: Props) {
             <CardView card={card} size="md" />
           </div>
         ))}
-        <TrickStack seat={anchor} count={stackFor(anchor)} self perGroup={4} />
+        <TrickStack seat={anchor} count={stackFor(anchor)} self perGroup={4} hold={holdFor(anchor)} />
         {reveal.active ? (
           <div className={`hakem-reveal${reveal.done ? ' done' : ''}`}>
             {reveal.done
