@@ -52,6 +52,8 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
       connsByGame.set(conn.game.id, set);
     }
     set.add(conn);
+    // وسطِ دست (قبل از حل) هم به همه فرستاده شود تا کارتِ حریف دیده شود
+    conn.game.onFlush = () => broadcast(conn.game);
   }
 
   function removeConn(conn: Conn): void {

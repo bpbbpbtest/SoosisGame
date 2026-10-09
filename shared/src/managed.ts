@@ -42,4 +42,10 @@ export interface ManagedGame {
 
   view(seat: number | null): AnyView;
   autoAdvance(now: number): boolean;
+
+  /**
+   * وسطِ دست (کارتِ آخر زمین گذاشته شده هنوز حل نشده) — سرور این لحظه را
+   * برای کلاینت‌ها می‌فرستد تا کارت‌های روی زمین دیده شوند، بعد حل و جمع می‌شود.
+   */
+  onFlush?: (() => void) | null;
 }

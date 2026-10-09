@@ -113,6 +113,7 @@ export class HokmGame implements GameState {
   matchTarget: number;
   roundTarget: number;
   notifiedEnd = false;
+  onFlush: (() => void) | null = null;
 
   private readonly now: () => number;
   private readonly rnd: () => number;
@@ -376,6 +377,7 @@ export class HokmGame implements GameState {
     this.bump();
 
     if (r.trick.length < 4) return;
+    this.onFlush?.();
     this.resolveTrick();
   }
 

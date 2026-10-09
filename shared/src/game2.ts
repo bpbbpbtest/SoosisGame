@@ -121,6 +121,7 @@ export class Hokm2Game {
   matchTarget: number;
   roundTarget: number;
   notifiedEnd = false;
+  onFlush: (() => void) | null = null;
 
   private burnSeat = 0;
   private readonly now: () => number;
@@ -419,6 +420,7 @@ export class Hokm2Game {
     this.setDeadline(TURN_MS);
     this.bump();
     if (r.trick.length < 2) return;
+    this.onFlush?.();
     this.resolveTrick();
   }
 

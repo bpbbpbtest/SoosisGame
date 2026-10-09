@@ -580,8 +580,8 @@ export function useTableMotion(args: Args): {
     ) {
       const cards = [...lastRects.current.entries()].map(([card, from]) => ({ card, from }));
       lastRects.current = new Map();
-      // مکث کوتاه: هر دو کارت کنار هم بمانند، بعد با هم جمع شوند
-      pendingGather.current = { cards, winner: leader, readyAt: Date.now() + 1150 };
+      // مکث ۲ ثانیه‌ای: هر دو کارت کنار هم بمانند، بعد با هم جمع شوند
+      pendingGather.current = { cards, winner: leader, readyAt: Date.now() + 2000 };
       setGatherTick((x) => x + 1);
     } else if (prev.length === fullN && cur.length === 0) {
       setLingering(null);
