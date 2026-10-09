@@ -89,6 +89,10 @@ export function GameTable({ state, act }: Props) {
     state.deadline !== null
       ? Math.max(0, Math.ceil((state.deadline - (now + clockSkew)) / 1000))
       : null;
+  // ارقام فارسی برای نمایش + فوریتِ ۵ ثانیهٔ آخر
+  const fa = (n: number | string) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+  const rem = remaining !== null ? `${fa(remaining)}ث` : null;
+  const urgent = remaining !== null && remaining <= 5;
 
   const yourScore = yourTeam !== null ? state.points[yourTeam] : state.points[0];
   const oppScore = yourTeam !== null ? state.points[1 - yourTeam] : state.points[1];
@@ -117,7 +121,7 @@ export function GameTable({ state, act }: Props) {
         </ul>
         <p className="hint">
           {joined < 4
-            ? `منتظر ${4 - joined} بازیکن دیگر… لینک را در گروه بفرستید.`
+            ? `منتظر ${fa(4 - joined)} بازیکن دیگر… لینک را در گروه بفرستید.`
             : 'همه آماده‌اند!'}
         </p>
         <div className="btn-row">
@@ -139,7 +143,7 @@ export function GameTable({ state, act }: Props) {
               onClick={() => act({ k: 'start' })}
               disabled={!state.can.start}
             >
-              شروع بازی ({joined}/4)
+              شروع بازی ({fa(joined)}/${fa(4)})
             </button>
           ) : null}
           {state.can.leave ? (
@@ -201,12 +205,12 @@ export function GameTable({ state, act }: Props) {
     <div className="table" ref={rootRef}>
       <header className="hud">
         <div className="score">
-          <span key={`m-${yourScore}`} className={`sc mine ${yourTeam !== null ? '' : ''}`}>
-            {yourScore}
+          <span key={`m-${fa(yourScore)}`} className={`sc mine ${yourTeam !== null ? '' : ''}`}>
+            {fa(yourScore)}
           </span>
           <span className="sep">—</span>
-          <span key={`o-${oppScore}`} className="sc opp">
-            {oppScore}
+          <span key={`o-${fa(oppScore)}`} className="sc opp">
+            {fa(oppScore)}
           </span>
           <span
             key={`t-${yourTeam !== null ? state.tricks[yourTeam] : state.tricks[0]}-${
@@ -284,9 +288,9 @@ export function GameTable({ state, act }: Props) {
           </div>
         ) : null}
         {state.trick.length === 0 && state.phase === 'play' ? (
-          <div className="table-hint">
+          <div className={`table-hint${urgent ? ' urgent' : ''}`}>
             {state.turn !== null ? `نوبت: ${seatName(state.turn)}` : ''}
-            {remaining !== null ? ` — ${remaining}ث` : ''}
+            {rem !== null ? ` — ${rem}` : ''}
           </div>
         ) : null}
         {trickLeadSuit && state.phase === 'play' ? (
@@ -328,7 +332,7 @@ export function GameTable({ state, act }: Props) {
       </div>
 
       <details className="log">
-        <summary>گزارش بازی ({state.log.length})</summary>
+        <summary>گزارش بازی ({fa(state.log.length)})</summary>
         <ul>
           {state.log
             .slice(-15)
@@ -350,7 +354,7 @@ export function GameTable({ state, act }: Props) {
     switch (state.phase) {
       case 'cut': {
         if (revealHint) {
-          return <span className="waiting">{revealHint}</span>;
+          return <span className={`waiting${urgent ? ' urgent' : ''}`}>{revealHint}</span>;
         }
         if (state.can.cut) {
           return (
@@ -375,15 +379,15 @@ export function GameTable({ state, act }: Props) {
           );
         }
         return (
-          <span className="waiting">
-            منتظر کوپ {seatName(partner)}… {remaining !== null ? `(${remaining}ث)` : ''}
+          <span className={`waiting${urgent ? ' urgent' : ''}`}>
+            منتظر کوپ {seatName(partner)}… {rem !== null ? `(${rem})` : ''}
           </span>
         );
       }
 
       case 'trump': {
         if (revealHint) {
-          return <span className="waiting">{revealHint}</span>;
+          return <span className={`waiting${urgent ? ' urgent' : ''}`}>{revealHint}</span>;
         }
         return (
           <div className="action-group">
@@ -403,20 +407,20 @@ export function GameTable({ state, act }: Props) {
               </>
             ) : (
               <>
-                <span className="waiting">
+                <span className={`waiting${urgent ? ' urgent' : ''}`}>
                   منتظر تعیین حکم توسط {seatName(state.hakem)}…{' '}
-                  {remaining !== null ? `(${remaining}ث)` : ''}
+                  {rem !== null ? `(${rem})` : ''}
                 </span>
                 {state.can.vote ? (
                   <button type="button" className="ghost" onClick={() => act({ k: 'vote' })}>
-                    رأی به توزیع مجدد ({state.can.votes}/2)
+                    رأی به توزیع مجدد ({fa(state.can.votes)}/۲)
                   </button>
                 ) : null}
               </>
             )}
             {state.can.vote && state.can.trump ? (
               <button type="button" className="ghost" onClick={() => act({ k: 'vote' })}>
-                رأی به توزیع مجدد ({state.can.votes}/2)
+                رأی به توزیع مجدد ({fa(state.can.votes)}/۲)
               </button>
             ) : null}
           </div>
@@ -426,14 +430,14 @@ export function GameTable({ state, act }: Props) {
       case 'play': {
         if (state.can.play) {
           return (
-            <span className="turn-now">
-              نوبت شماست — ورق روشن را بزنید {remaining !== null ? `(${remaining}ث)` : ''}
+            <span className={`turn-now${urgent ? ' urgent' : ''}`}>
+              نوبت شماست — ورق روشن را بزنید {rem !== null ? `(${rem})` : ''}
             </span>
           );
         }
         return (
-          <span className="waiting">
-            نوبت: {seatName(state.turn)} {remaining !== null ? `(${remaining}ث)` : ''}
+          <span className={`waiting${urgent ? ' urgent' : ''}`}>
+            نوبت: {seatName(state.turn)} {rem !== null ? `(${rem})` : ''}
           </span>
         );
       }
@@ -454,11 +458,15 @@ export function GameTable({ state, act }: Props) {
                   پایان دور
                 </button>
               </div>
-              {remaining !== null ? <span className="waiting">({remaining}ث)</span> : null}
+              {rem !== null ? (
+              <span className={`waiting${urgent ? ' urgent' : ''}`}>({rem})</span>
+            ) : null}
             </div>
           );
         }
-        return <span className="waiting">تیم {t !== null ? teamLabel(t) : ''} تصمیم می‌گیرد…</span>;
+        return <span className={`waiting${urgent ? ' urgent' : ''}`}>
+          تیم {t !== null ? teamLabel(t) : ''} تصمیم می‌گیرد…{rem !== null ? ` (${rem})` : ''}
+        </span>;
       }
 
       case 'roundEnd': {
@@ -482,8 +490,10 @@ export function GameTable({ state, act }: Props) {
                 </button>
               ) : null}
             </div>
-            {remaining !== null ? (
-              <span className="waiting">شروع خودکار تا {remaining}ث دیگر</span>
+            {rem !== null ? (
+              <span className={`waiting${urgent ? ' urgent' : ''}`}>
+                شروع خودکار تا {rem} دیگر
+              </span>
             ) : null}
           </div>
         );

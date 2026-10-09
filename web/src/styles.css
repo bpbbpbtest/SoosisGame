@@ -749,12 +749,6 @@ button:active {
   flex: 0 0 auto;
 }
 
-.card.sm {
-  width: 28px;
-  height: 40px;
-  border-radius: 5px;
-}
-
 .card.lg {
   width: calc(var(--card-w) + 8px);
   height: calc(var(--card-h) + 12px);
@@ -766,17 +760,9 @@ button:active {
   line-height: 1;
 }
 
-.card.sm .rank {
-  font-size: 11px;
-}
-
 .card .suit {
   font-size: 16px;
   line-height: 1.1;
-}
-
-.card.sm .suit {
-  font-size: 12px;
 }
 
 .card.red {
@@ -785,16 +771,6 @@ button:active {
 
 .card.black {
   color: #1b1b1b;
-}
-
-.card .card-label {
-  position: absolute;
-  bottom: -14px;
-  right: 0;
-  left: 0;
-  font-size: 9px;
-  color: var(--muted);
-  text-align: center;
 }
 
 .card.dim {
@@ -809,16 +785,6 @@ button:active {
 
 .card.playable:active {
   transform: translateY(-6px);
-}
-
-.card-back {
-  display: inline-block;
-  min-width: 26px;
-  border-radius: 6px;
-  background: repeating-linear-gradient(45deg, #7a2c2c, #7a2c2c 4px, #5e1f1f 4px, #5e1f1f 8px);
-  color: #ffe3e3;
-  font-size: 11px;
-  padding: 3px 6px;
 }
 
 /* ---------- hand ---------- */
@@ -856,9 +822,11 @@ button:active {
   }
 }
 
-.hand .card.playable:hover {
-  transform: translateY(-9px);
-  box-shadow: 0 0 14px rgba(232, 193, 90, 0.75);
+@media (hover: hover) {
+  .hand .card.playable:hover {
+    transform: translateY(-9px);
+    box-shadow: 0 0 14px rgba(232, 193, 90, 0.75);
+  }
 }
 
 .hand .card.playable:active {
@@ -1054,5 +1022,287 @@ input[type='range'] {
   :root {
     --card-w: 40px;
     --card-h: 58px;
+  }
+}
+
+/* ---------- polish: focus / touch / states ---------- */
+:root {
+  color-scheme: dark;
+}
+
+body {
+  line-height: 1.7;
+}
+
+/* فاصلهٔ امن برای بریدگی نمایشگر و نوار پایین iOS */
+.table {
+  padding: calc(6px + env(safe-area-inset-top, 0px))
+    max(8px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px))
+    max(8px, env(safe-area-inset-left, 0px));
+}
+
+/* نوار امتیاز هنگام اسکرولِ گزارش از دید پنهان نشود */
+.hud {
+  position: sticky;
+  top: calc(6px + env(safe-area-inset-top, 0px));
+  z-index: 40;
+}
+
+/* ---------- focus / keyboard ---------- */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.card:focus-visible {
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px rgba(232, 193, 90, 0.5), 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+input[type='range']:focus-visible {
+  outline-offset: 6px;
+}
+
+/* ---------- transitions & press feedback ---------- */
+button.primary,
+button.ghost,
+.suit-btn,
+.turn-now,
+.waiting,
+.toast,
+.banner {
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease,
+    transform 0.12s ease, filter 0.12s ease, opacity 0.16s ease, color 0.16s ease;
+}
+
+@media (hover: hover) {
+  button.ghost:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(232, 193, 90, 0.5);
+  }
+  button.primary:hover {
+    filter: brightness(1.06);
+  }
+  .suit-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(232, 193, 90, 0.5);
+  }
+}
+
+button.primary:active,
+button.ghost:active,
+.suit-btn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+/* ---------- نوبت: تغییرِ نرم به‌جای پرش ---------- */
+.seat {
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.seat.turn {
+  animation: seat-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes seat-glow {
+  50% {
+    box-shadow: 0 0 22px rgba(232, 193, 90, 0.65);
+  }
+}
+
+/* ---------- فوریتِ شمارش معکوس ---------- */
+.waiting.urgent,
+.turn-now.urgent {
+  color: #ffd7d7;
+  font-weight: 800;
+  animation: urgency 1s ease-in-out infinite;
+}
+
+.turn-now.urgent {
+  border-color: var(--red);
+  background: rgba(224, 69, 69, 0.25);
+}
+
+.table-hint.urgent {
+  color: #ff9c9c;
+  font-weight: 800;
+}
+
+@keyframes urgency {
+  50% {
+    background: rgba(224, 69, 69, 0.4);
+    color: #fff;
+  }
+}
+
+/* ---------- انتخاب ورق برای سوزاندن ---------- */
+.hand .card.selected,
+.hand .card.selected:hover {
+  transform: translateY(-12px);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(232, 193, 90, 0.65), 0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+.card.selected::after {
+  content: attr(data-burn-idx);
+  position: absolute;
+  top: -8px;
+  inset-inline-start: -8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #40300a;
+  font-size: 11px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- toast / banners / پنل پایان ---------- */
+.toast {
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  animation: toast-in 0.2s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(50%) translateY(-8px);
+  }
+}
+
+.banner.reconnect {
+  background: #6b4a1f;
+  color: #ffe9c9;
+}
+
+.end-panel {
+  width: min(420px, 94vw);
+}
+
+.sep {
+  opacity: 0.6;
+}
+
+/* ---------- سایر بهبودهای چیدمانی ---------- */
+.action-group {
+  width: min(440px, 100%);
+}
+
+.suit-btn {
+  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease,
+    transform 0.12s ease;
+}
+
+.suit-btn:active {
+  transform: scale(0.96);
+}
+
+input[type='range'] {
+  height: 44px;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 2px solid #40300a;
+  cursor: pointer;
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 2px solid #40300a;
+  cursor: pointer;
+}
+
+.log {
+  font-size: 12px;
+}
+
+.log summary {
+  display: block;
+  padding: 10px 8px;
+  min-height: 40px;
+}
+
+.ace-caption {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.ace-cards .card {
+  animation: played-in 0.3s ease-out backwards;
+}
+
+@media (max-width: 380px) {
+  .seat.left,
+  .seat.right {
+    min-width: 96px;
+    padding: 6px;
+  }
+  .seat.left .seat-cards,
+  .seat.right .seat-cards {
+    display: none;
+  }
+  .seat.left .played-slot,
+  .seat.right .played-slot {
+    transform: translateY(-50%) scale(0.9);
+  }
+}
+
+/* ---------- کاهش حرکت: باید آخرِ فایل باشد تا بر همهٔ انیمیشن‌ها مسلط شود ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .sc,
+  .trick-count,
+  .trump-badge,
+  .trick-card .card,
+  .played-slot .card,
+  .played-slot.reveal .card,
+  .trick-card.reveal .card,
+  .trick-stack .ts-group,
+  .hand .card,
+  .ace-cards .card,
+  .overlay,
+  .overlay .panel,
+  .toast,
+  .seat.turn,
+  .turn-dot,
+  .waiting.urgent,
+  .turn-now.urgent {
+    animation: none;
+  }
+
+  .spinner {
+    animation-duration: 2.4s;
+  }
+
+  .card {
+    transition: none;
+  }
+
+  .seat {
+    transition: none;
+  }
+
+  .hand .card.playable:hover,
+  .hand .card.playable:active,
+  .hand .card.selected,
+  .hand .card.selected:hover,
+  .card.playable:active,
+  button.primary:active,
+  button.ghost:active,
+  .suit-btn:active {
+    transform: none;
   }
 }

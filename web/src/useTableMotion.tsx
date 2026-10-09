@@ -56,6 +56,11 @@ interface Args {
 
 let seq = 0;
 
+// کاربرِ «کاهش حرکت» (prefers-reduced-motion): پروازها تقریباً آنی می‌شوند
+const REDUCED =
+  typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const D = (ms: number) => (REDUCED ? 1 : ms);
+
 function feltCenter(root: HTMLElement): Rect | null {
   const felt = root.querySelector<HTMLElement>('.trick-area');
   if (!felt) return null;
@@ -110,7 +115,7 @@ function animateSlotIn(el: HTMLElement, from: Rect, flip: boolean): void {
           },
           { transform: 'translate(0px, 0px) rotateY(0deg) scale(1)', opacity: 1, offset: 1 },
         ],
-        { duration: 850, easing: 'linear' },
+        { duration: D(850), easing: 'linear' },
       );
     } else {
       cardEl.animate(
@@ -118,7 +123,7 @@ function animateSlotIn(el: HTMLElement, from: Rect, flip: boolean): void {
           { transform: `translate(${dx}px, ${dy}px) rotate(${tilt}deg) scale(1.05)`, offset: 0 },
           { transform: 'translate(0px, 0px) rotate(0deg) scale(1)', offset: 1 },
         ],
-        { duration: 850, easing: 'linear' },
+        { duration: D(850), easing: 'linear' },
       );
     }
   } catch {
@@ -148,7 +153,7 @@ function animateFly(el: HTMLElement, f: Flight, onDone: () => void): void {
           { transform: 'rotateY(360deg)', offset: 0.42 },
           { transform: 'rotateY(360deg)', offset: 1 },
         ],
-        { duration: 820, easing: 'ease-in-out', fill: 'forwards' },
+        { duration: D(820), easing: 'ease-in-out', fill: 'forwards' },
       );
       el.animate(
         [
@@ -160,7 +165,7 @@ function animateFly(el: HTMLElement, f: Flight, onDone: () => void): void {
           },
           { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(${s})`, offset: 1 },
         ],
-        { duration: 820, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
+        { duration: D(820), easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
       )
         .finished.then(onDone)
         .catch(onDone);
@@ -175,7 +180,7 @@ function animateFly(el: HTMLElement, f: Flight, onDone: () => void): void {
         },
         { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(${s})`, offset: 1 },
       ],
-      { duration: 460, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
+      { duration: D(460), easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)', fill: 'forwards' },
     )
       .finished.then(onDone)
       .catch(onDone);
@@ -205,7 +210,7 @@ function animateBurn(el: HTMLElement, f: Flight, onDone: () => void): void {
           offset: 1,
         },
       ],
-      { duration: 640, easing: 'cubic-bezier(0.3, 0.05, 0.4, 1)', fill: 'forwards' },
+      { duration: D(640), easing: 'cubic-bezier(0.3, 0.05, 0.4, 1)', fill: 'forwards' },
     )
       .finished.then(onDone)
       .catch(onDone);
@@ -238,7 +243,7 @@ function animateGather(
         { transform: 'rotateY(180deg)', offset: 0.48 },
         { transform: 'rotateY(180deg)', offset: 1 },
       ],
-      { duration: 1250, easing: 'ease-in-out', fill: 'forwards' },
+      { duration: D(1250), easing: 'ease-in-out', fill: 'forwards' },
     );
     el.animate(
       [
@@ -264,7 +269,7 @@ function animateGather(
           offset: 1,
         },
       ],
-      { duration: 1250, easing: 'ease-in-out', fill: 'forwards' },
+      { duration: D(1250), easing: 'ease-in-out', fill: 'forwards' },
     )
       .finished.then(onDone)
       .catch(onDone);
@@ -352,8 +357,8 @@ function DealCard(props: { deck: Rect; to: Rect; delay: number }) {
               },
             ],
             {
-              duration: 460,
-              delay: props.delay,
+              duration: D(460),
+              delay: REDUCED ? 0 : props.delay,
               easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)',
               fill: 'both',
             },
@@ -615,7 +620,11 @@ export function useTableMotion(args: Args): {
       const cards = [...lastRects.current.entries()].map(([card, from]) => ({ card, from }));
       lastRects.current = new Map();
       // مکث ۲ ثانیه‌ای: هر دو کارت کنار هم بمانند، بعد با هم جمع شوند
-      pendingGather.current = { cards, winner: leader, readyAt: Date.now() + 2000 };
+      pendingGather.current = {
+        cards,
+        winner: leader,
+        readyAt: Date.now() + (REDUCED ? 200 : 2000),
+      };
       setGatherTick((x) => x + 1);
     } else if (prev.length === fullN && cur.length === 0) {
       setLingering(null);
@@ -663,7 +672,7 @@ export function useTableMotion(args: Args): {
     }
     if (card === undefined) return;
     pendingDraw.current = null;
-    const el = handRef?.current?.querySelector<HTMLElement>(`[aria-label="${card}"]`);
+    const el = handRef?.current?.querySelector<HTMLElement>(`[data-card="${card}"]`);
     if (!el) return;
     const to = el.getBoundingClientRect();
     startFlight({ card, from: p.from, to, size: 'md', flip: p.flip });

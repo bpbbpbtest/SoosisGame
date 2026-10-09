@@ -86,6 +86,10 @@ export function GameTable2({ state, act }: Props) {
     state.deadline !== null
       ? Math.max(0, Math.ceil((state.deadline - (now + clockSkew)) / 1000))
       : null;
+  // ارقام فارسی برای نمایش + فوریتِ ۵ ثانیهٔ آخر
+  const fa = (n: number | string) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+  const rem = remaining !== null ? `${fa(remaining)}ث` : null;
+  const urgent = remaining !== null && remaining <= 5;
 
   const yourScore = you !== null ? state.points[you] : state.points[0];
   const oppScore = you !== null ? state.points[1 - you] : state.points[1];
@@ -113,7 +117,7 @@ export function GameTable2({ state, act }: Props) {
         </ul>
         <p className="hint">
           {joined < 2
-            ? `منتظر ${2 - joined} بازیکن دیگر… لینک را در گروه بفرستید.`
+            ? `منتظر ${fa(2 - joined)} بازیکن دیگر… لینک را در گروه بفرستید.`
             : 'هر دو آماده‌اند!'}
         </p>
         <div className="btn-row">
@@ -135,7 +139,7 @@ export function GameTable2({ state, act }: Props) {
               onClick={() => act({ k: 'start' })}
               disabled={!state.can.start}
             >
-              شروع بازی ({joined}/2)
+              شروع بازی ({fa(joined)}/${fa(2)})
             </button>
           ) : null}
           {state.can.leave ? (
@@ -196,12 +200,12 @@ export function GameTable2({ state, act }: Props) {
     <div className="table" ref={rootRef}>
       <header className="hud">
         <div className="score">
-          <span key={`m-${yourScore}`} className="sc mine">
-            {yourScore}
+          <span key={`m-${fa(yourScore)}`} className="sc mine">
+            {fa(yourScore)}
           </span>
           <span className="sep">—</span>
-          <span key={`o-${oppScore}`} className="sc opp">
-            {oppScore}
+          <span key={`o-${fa(oppScore)}`} className="sc opp">
+            {fa(oppScore)}
           </span>
           <span
             key={`t-${you !== null ? state.tricks[you] : state.tricks[0]}-${
@@ -287,14 +291,14 @@ export function GameTable2({ state, act }: Props) {
                 </div>
               </div>
             ) : (
-              <span className="waiting">{`${seatName(state.draw.turn)} در حال برداشت…`}</span>
+              <span className={`waiting${urgent ? ' urgent' : ''}`}>{`${seatName(state.draw.turn)} در حال برداشت…`}</span>
             )}
           </div>
         ) : null}
         {state.trick.length === 0 && motion.lingering === null && state.phase === 'play' ? (
-          <div className="table-hint">
+          <div className={`table-hint${urgent ? ' urgent' : ''}`}>
             {state.turn !== null ? `نوبت: ${seatName(state.turn)}` : ''}
-            {remaining !== null ? ` — ${remaining}ث` : ''}
+            {rem !== null ? ` — ${rem}` : ''}
           </div>
         ) : null}
         {trickLeadSuit && state.phase === 'play' ? (
@@ -314,14 +318,18 @@ export function GameTable2({ state, act }: Props) {
             };
             if (motion.hidden.has(card)) style.visibility = 'hidden';
             if (inBurn) {
-              const selected = burnSel.includes(card);
+              const idx = burnSel.indexOf(card);
+              const selected = idx >= 0;
               return (
                 <CardView
                   key={card}
                   style={style}
                   card={card}
                   size="lg"
-                  playable={selected}
+                  playable
+                  selected={selected}
+                  burnIdx={selected ? idx + 1 : undefined}
+                  dim={!selected && burnSel.length === 2}
                   onClick={() => toggleBurn(card)}
                 />
               );
@@ -351,7 +359,7 @@ export function GameTable2({ state, act }: Props) {
       </div>
 
       <details className="log">
-        <summary>گزارش بازی ({state.log.length})</summary>
+        <summary>گزارش بازی ({fa(state.log.length)})</summary>
         <ul>
           {state.log
             .slice(-15)
@@ -381,7 +389,7 @@ export function GameTable2({ state, act }: Props) {
     switch (state.phase) {
       case 'trump': {
         if (revealHint) {
-          return <span className="waiting">{revealHint}</span>;
+          return <span className={`waiting${urgent ? ' urgent' : ''}`}>{revealHint}</span>;
         }
         if (state.can.trump) {
           return (
@@ -401,9 +409,9 @@ export function GameTable2({ state, act }: Props) {
           );
         }
         return (
-          <span className="waiting">
+          <span className={`waiting${urgent ? ' urgent' : ''}`}>
             منتظر تعیین حکم توسط {seatName(state.hakem)}…{' '}
-            {remaining !== null ? `(${remaining}ث)` : ''}
+            {rem !== null ? `(${rem})` : ''}
           </span>
         );
       }
@@ -413,7 +421,7 @@ export function GameTable2({ state, act }: Props) {
           return (
             <div className="action-group">
               <span className="action-title">
-                دقیقاً ۲ ورق بسوزانید ({burnSel.length}/2 انتخاب شده)
+                دقیقاً ۲ ورق بسوزانید ({fa(burnSel.length)}/۲ انتخاب شده)
               </span>
               <div className="btn-row">
                 <button
@@ -424,7 +432,7 @@ export function GameTable2({ state, act }: Props) {
                     const items: { card: CardId; from: Rect }[] = [];
                     for (const card of burnSel) {
                       const el = handRef.current?.querySelector<HTMLElement>(
-                        `[aria-label="${card}"]`,
+                        `[data-card="${card}"]`,
                       );
                       if (el) items.push({ card, from: el.getBoundingClientRect() });
                     }
@@ -444,9 +452,9 @@ export function GameTable2({ state, act }: Props) {
           );
         }
         return (
-          <span className="waiting">
+          <span className={`waiting${urgent ? ' urgent' : ''}`}>
             انتخاب ۲ ورق برای سوزاندن توسط {seatName(state.turn)}…{' '}
-            {remaining !== null ? `(${remaining}ث)` : ''}
+            {rem !== null ? `(${rem})` : ''}
           </span>
         );
       }
@@ -493,14 +501,16 @@ export function GameTable2({ state, act }: Props) {
                   بسوزان — دومی را بردار
                 </button>
               </div>
-              {remaining !== null ? <span className="waiting">({remaining}ث)</span> : null}
+              {rem !== null ? (
+              <span className={`waiting${urgent ? ' urgent' : ''}`}>({rem})</span>
+            ) : null}
             </div>
           );
         }
         return (
-          <span className="waiting">
+          <span className={`waiting${urgent ? ' urgent' : ''}`}>
             برداشت زوجی توسط {seatName(state.draw?.turn ?? null)}…{' '}
-            {remaining !== null ? `(${remaining}ث)` : ''}
+            {rem !== null ? `(${rem})` : ''}
           </span>
         );
       }
@@ -508,14 +518,14 @@ export function GameTable2({ state, act }: Props) {
       case 'play': {
         if (state.can.play) {
           return (
-            <span className="turn-now">
-              نوبت شماست — ورق روشن را بزنید {remaining !== null ? `(${remaining}ث)` : ''}
+            <span className={`turn-now${urgent ? ' urgent' : ''}`}>
+              نوبت شماست — ورق روشن را بزنید {rem !== null ? `(${rem})` : ''}
             </span>
           );
         }
         return (
-          <span className="waiting">
-            نوبت: {seatName(state.turn)} {remaining !== null ? `(${remaining}ث)` : ''}
+          <span className={`waiting${urgent ? ' urgent' : ''}`}>
+            نوبت: {seatName(state.turn)} {rem !== null ? `(${rem})` : ''}
           </span>
         );
       }
@@ -541,8 +551,10 @@ export function GameTable2({ state, act }: Props) {
                 </button>
               ) : null}
             </div>
-            {remaining !== null ? (
-              <span className="waiting">شروع خودکار تا {remaining}ث دیگر</span>
+            {rem !== null ? (
+              <span className={`waiting${urgent ? ' urgent' : ''}`}>
+                شروع خودکار تا {rem} دیگر
+              </span>
             ) : null}
           </div>
         );

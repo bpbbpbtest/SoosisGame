@@ -3,6 +3,7 @@ import {
   RANK_DISPLAY,
   SUIT_FA,
   SUIT_SYMBOL,
+  cardName,
   isRed,
   rankOf,
   suitOf,
@@ -16,14 +17,17 @@ export function CardView(props: {
   size?: 'sm' | 'md' | 'lg';
   dim?: boolean;
   playable?: boolean;
+  selected?: boolean;
+  // شمارهٔ انتخاب (مثلاً ورقِ دومِ سوزاندن) — روی کارت به‌صورت نشان دایره‌ای
+  burnIdx?: number;
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
-  label?: string;
   style?: CSSProperties;
 }) {
   const s = suitOf(props.card);
   const cls = ['card', props.size ?? 'md', isRed(s) ? 'red' : 'black'];
   if (props.dim) cls.push('dim');
   if (props.playable) cls.push('playable');
+  if (props.selected) cls.push('selected');
   return (
     <button
       type="button"
@@ -31,11 +35,13 @@ export function CardView(props: {
       style={props.style}
       onClick={props.onClick}
       disabled={!props.onClick}
-      aria-label={props.card}
+      aria-label={cardName(props.card)}
+      aria-pressed={props.selected}
+      data-card={props.card}
+      data-burn-idx={props.burnIdx}
     >
       <span className="rank">{RANK_DISPLAY[rankOf(props.card)]}</span>
       <span className="suit">{SUIT_SYMBOL[s]}</span>
-      {props.label ? <span className="card-label">{props.label}</span> : null}
     </button>
   );
 }
@@ -143,13 +149,5 @@ export function SuitButton(props: { suit: Suit; onClick: () => void }) {
       <span className="sym">{SUIT_SYMBOL[props.suit]}</span>
       <span className="nm">{SUIT_FA[props.suit]}</span>
     </button>
-  );
-}
-
-export function CardBack({ count }: { count: number }) {
-  return (
-    <span className="card-back" aria-hidden>
-      {count}
-    </span>
   );
 }
