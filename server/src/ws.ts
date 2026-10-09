@@ -185,7 +185,17 @@ export function startGameServer(cfg: Config, store: GameStore, hooks: ServerHook
     send(conn, { t: 'ready', user: { id: user.id, name: user.name } });
     broadcast(game); // وضعیت جدید (مثلاً جوین شدن) به همه برسد
 
+    // سقف پیام در ثانیه — هر پیامِ اضافه بی‌صدا نادیده گرفته می‌شود (بدون kick)
+    let msgCount = 0;
+    let msgWindow = Date.now();
+
     ws.on('message', (raw) => {
+      const t = Date.now();
+      if (t - msgWindow >= 1000) {
+        msgWindow = t;
+        msgCount = 0;
+      }
+      if (++msgCount > 30) return;
       // هر پیام خام باید بی‌خطر باشد — JSON.parse می‌تواند null/عدد/رشته برگرداند
       // و دسترسی به property روی آن کل سرور را می‌اندازد
       let parsed: unknown;

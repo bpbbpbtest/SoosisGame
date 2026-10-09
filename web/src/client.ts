@@ -38,11 +38,35 @@ export class GameClient {
   private pendingAction: Action | null = null;
   private lastIn = 0;
   private keepalive: number | null = null;
+  private code = '';
+  private initData = '';
+  private reconnectTimer: number | null = null;
+  private fatalAuth = false;
 
   constructor(
     private readonly cfg: WebConfig,
     private readonly handlers: ClientHandlers
-  ) {}
+  ) {
+    // برگشت شبکه (مثلاً خروج از حالت هواپیما): بلافاصله تلاش مجدد، بدون انتظار backoff
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', this.handleOnline);
+    }
+  }
+
+  private handleOnline = (): void => {
+    if (this.disposed || this.fatalAuth || !this.code) return;
+    const ws = this.ws;
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.failCount = 0;
+    this.retryMs = 1000;
+    this.connect(this.code, this.initData);
+  };
 
   private queueState(s: AnyView): void {
     this.stateQ.push(s);
@@ -103,6 +127,12 @@ export class GameClient {
 
   connect(gameCode: string, initData: string): void {
     if (this.disposed) return;
+    this.code = gameCode;
+    this.initData = initData;
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     const url = `${toWsBase(this.cfg.ws)}/ws?game=${encodeURIComponent(
       gameCode
     )}&initData=${encodeURIComponent(initData)}`;
@@ -111,6 +141,7 @@ export class GameClient {
     this.ws = ws;
 
     ws.onopen = () => {
+      if (this.ws !== ws) return;
       this.retryMs = 1000;
       this.failCount = 0;
       this.lastError = null;
@@ -126,6 +157,7 @@ export class GameClient {
     };
 
     ws.onmessage = (ev) => {
+      if (this.ws !== ws) return;
       this.lastIn = Date.now();
       let msg: ServerMsg;
       try {
@@ -142,10 +174,13 @@ export class GameClient {
     };
 
     ws.onclose = (ev) => {
+      // رویدادِ سوکتِ قدیمی — اتصال تازه‌ای جانشین شده و مال خودش را مدیریت می‌کند
+      if (this.ws !== ws) return;
       this.stopKeepalive();
       if (this.disposed) return;
       if (ev.code === 4001) {
         this.pendingAction = null;
+        this.fatalAuth = true;
         this.handlers.onStatus('fatal');
         this.handlers.onError(
           this.lastError ?? 'اتصال رد شد؛ کد بازی یا ورود شما معتبر نیست'
@@ -164,7 +199,10 @@ export class GameClient {
       this.handlers.onStatus('closed');
       const wait = this.retryMs;
       this.retryMs = Math.min(this.retryMs * 2, 10000);
-      window.setTimeout(() => this.connect(gameCode, initData), wait);
+      this.reconnectTimer = window.setTimeout(() => {
+        this.reconnectTimer = null;
+        this.connect(gameCode, initData);
+      }, wait);
     };
 
     ws.onerror = () => {
@@ -190,6 +228,13 @@ export class GameClient {
     this.stateQ = [];
     this.pendingAction = null;
     this.stopKeepalive();
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('online', this.handleOnline);
+    }
     try {
       this.ws?.close();
     } catch {

@@ -64,6 +64,8 @@ export interface PlayerView2 {
   leader: number | null;
   turn: number | null;
   deadline: number | null;
+  // ساعت سرور هنگام ساخت وضعیت — کلاینت اختلاف ساعت را برای شمارش معکوس جبران می‌کند
+  srvNow: number;
   tricks: [number, number];
   points: [number, number];
   roundTarget: number;
@@ -633,6 +635,7 @@ export class Hokm2Game {
       leader: r ? r.leader : null,
       turn,
       deadline: this.deadline,
+      srvNow: this.now(),
       tricks: r ? this.trickCounts() : [0, 0],
       points: [this.points[0], this.points[1]],
       roundTarget: this.roundTarget,

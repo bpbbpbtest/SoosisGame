@@ -352,3 +352,25 @@ describe('game flow', () => {
     expect(g.view(0).mode).toBe('4');
   });
 });
+
+
+describe('view flags', () => {
+  it('can.start requires a full house of seated players', () => {
+    const g = newGame();
+    g.join({ id: 'p0', name: 'a' });
+    expect(g.view(0).can.start).toBe(false);
+    g.join({ id: 'p1', name: 'b' });
+    g.join({ id: 'p2', name: 'c' });
+    expect(g.view(0).can.start).toBe(false);
+    g.join({ id: 'p3', name: 'd' });
+    expect(g.view(0).can.start).toBe(true);
+    expect(g.view(null).can.start).toBe(false);
+  });
+
+  it('srvNow reflects the injected server clock', () => {
+    const t = 1700000000000;
+    const g = new HokmGame('test', { now: () => t });
+    g.join({ id: 'p0', name: 'a' });
+    expect(g.view(0).srvNow).toBe(t);
+  });
+});

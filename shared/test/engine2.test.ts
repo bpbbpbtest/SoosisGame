@@ -233,3 +233,22 @@ describe('hokm2', () => {
     expect(v.can.play).toBe(false);
   });
 });
+
+
+describe('view flags', () => {
+  it('can.start requires both seats filled', () => {
+    const g = mkGame(3);
+    g.join({ id: 'a', name: 'Ali' });
+    expect(g.view(0).can.start).toBe(false);
+    g.join({ id: 'b', name: 'Sara' });
+    expect(g.view(0).can.start).toBe(true);
+    expect(g.view(null).can.start).toBe(false);
+  });
+
+  it('srvNow reflects the injected server clock', () => {
+    const t = 1700000000000;
+    const g = new Hokm2Game('t2', { now: () => t });
+    g.join({ id: 'a', name: 'Ali' });
+    expect(g.view(0).srvNow).toBe(t);
+  });
+});

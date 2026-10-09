@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   SUIT_FA,
   SUIT_SYMBOL,
@@ -33,6 +33,16 @@ export function GameTable({ state, act }: Props) {
     const t = window.setInterval(() => setNow(Date.now()), 500);
     return () => window.clearInterval(t);
   }, [state.deadline]);
+
+  // اختلاف ساعت سرور و دستگاه — در لحظهٔ رسیدن هر وضعیت یک‌بار گرفته می‌شود تا
+  // شمارش معکوسِ مبتنی بر deadline سرور بدون تأثیر ساعت کلاینت درست بماند
+  const clockSkew = useMemo(
+    () =>
+      typeof state.srvNow === 'number' && Number.isFinite(state.srvNow)
+        ? state.srvNow - Date.now()
+        : 0,
+    [state.srvNow],
+  );
 
   const you = state.you;
   const anchor = you ?? 0;
@@ -76,7 +86,9 @@ export function GameTable({ state, act }: Props) {
   };
 
   const remaining =
-    state.deadline !== null ? Math.max(0, Math.ceil((state.deadline - now) / 1000)) : null;
+    state.deadline !== null
+      ? Math.max(0, Math.ceil((state.deadline - (now + clockSkew)) / 1000))
+      : null;
 
   const yourScore = yourTeam !== null ? state.points[yourTeam] : state.points[0];
   const oppScore = yourTeam !== null ? state.points[1 - yourTeam] : state.points[1];
