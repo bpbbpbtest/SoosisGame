@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # هر ۵ دقیقه: اگر اجرای قبلی تمام شد فوراً ربات را دوباره بالا می‌آورد
-    - cron: '*/5 * * * *'
+    - cron: '*/6 * * * *'
 
 permissions:
   contents: read
