@@ -16,7 +16,7 @@ jobs:
   gate:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 359
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
