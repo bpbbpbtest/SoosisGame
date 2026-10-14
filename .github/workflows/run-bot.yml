@@ -16,7 +16,7 @@ jobs:
   gate:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 359
+    timeout-minutes: 358
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
@@ -44,7 +44,7 @@ jobs:
       # اجرای جدید، اجرای در حال کار را متوقف می‌کند (ری‌استارت دستی/خودکار)
       cancel-in-progress: true
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 358
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
