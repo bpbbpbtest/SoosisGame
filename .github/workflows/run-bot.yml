@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # هر ۵ دقیقه: اگر اجرای قبلی تمام شد فوراً ربات را دوباره بالا می‌آورد
-    - cron: '0 */6 * * *'
+    - cron: '*/1 * * * *'
 
 permissions:
   contents: read
@@ -16,7 +16,7 @@ jobs:
   gate:
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 358
+    timeout-minutes: 360
     outputs:
       should_run: ${{ steps.check.outputs.should_run }}
     steps:
@@ -44,7 +44,7 @@ jobs:
       # اجرای جدید، اجرای در حال کار را متوقف می‌کند (ری‌استارت دستی/خودکار)
       cancel-in-progress: true
     runs-on: ubuntu-latest
-    timeout-minutes: 358
+    timeout-minutes: 360
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
